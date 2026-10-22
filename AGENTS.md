@@ -19,6 +19,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) before adding a feature. The product is 
 | File | Role |
 |---|---|
 | `main.js` | Window, menus, every filesystem operation, import parsing, PDF, backups |
+| `importers.js` | Import readers beyond .docx/.txt/.md: HTML, EPUB, .odt, PDF (pdfjs-dist), RTF and .doc (`textutil` on a Mac), links (Google Docs, Drive, web pages). Main process; `importFile` in `main.js` finds the chapters |
 | `preload.js` | The entire renderer API, `window.neo` |
 | `index.html` | Two views: `#bookshelf-view` and `#editor-view`. CSP is `script-src 'self'` |
 | `app.js` | The whole UI, in banner-marked sections. Search for the banner before reading the file |
@@ -51,6 +52,12 @@ NEO opens simple. File → Show More Features (`library.moreFeatures`) brings ba
 - A library from before the switch is decided once (`decideMoreFeatures`): on when it uses something behind it, off otherwise (with one toast saying where things went).
 - Pocket (Android and iOS) is always simple and has no switch; its ⋯ sheet in `pocket/www/index.html` offers only simple NEO's choices.
 - A new feature goes behind the switch unless Hugh says it belongs in simple NEO. `scripts/simple-neo.test.js`, `npm run test:simple`.
+
+## Customize NEO
+
+View → Customize NEO… (CUSTOMIZE NEO in `app.js`) turns tabs, panels and features off: `library.featuresOff` holds the ids, `featureOn(id)` asks. Off hides the tab or pane (a `feature-off-<id>` class on the body, `styles.css`), stands its keys down, and drops its menu items (`feature: '<id>'` in `buildMenu()`, left out by `simpleTemplate` from the window's `features:state`). Markdown's switch is `library.markdownOff`, shown in the same panel. A new feature with its own tab, pane, menu item or key gets an entry in `FEATURES`. `npm run test:customize`.
+
+This version opens light (`pageTheme` defaults to `'light'`; a library from before is made light once, `library.lightDefault`).
 
 ## Outline cards
 

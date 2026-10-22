@@ -1019,12 +1019,12 @@ async function renderShelves() {
       e.preventDefault();
       if (isBound(shelf)) { await boundShelfMenu(shelf); return; }
       const choice = await optionModal(escHtml(t('Shelf “{name}”', { name: shelf.name })), null, [
-        ...(moreOn() ? [{
+        ...(moreOn() && featureOn('binding') ? [{
           label: t('Bind into one book'),
           desc: t('Its titles become one book, with a cover, front and back pages, and one table of contents.'),
           value: 'bind'
-        },
-        {
+        }] : []),
+        ...(moreOn() ? [{
           label: t('Export shelf as anthology…'),
           desc: shelf.bookIds.length
             ? t('Collect its {n} works, in shelf order, into a single book with a table of contents.', { n: shelf.bookIds.length })
@@ -1098,7 +1098,7 @@ async function renderShelves() {
         if (!paths.length) return;
         toast(t('Importing…'));
         const results = await window.neo.importFiles(paths);
-        if (!results.length) { toast(t('No .docx, .txt, or .md files in that drop')); return; }
+        if (!results.length) { toast(t('Nothing in that drop NEO can import')); return; }
         await addImportedBooks(results, shelf);
         return;
       }
@@ -1146,7 +1146,7 @@ async function renderShelves() {
     if (!isBound(shelf)) {
       blank.addEventListener('contextmenu', async (e) => {
         e.preventDefault();
-        if (!moreOn()) return; // scripts are behind Show More Features
+        if (!moreOn() || !featureOn('scripts')) return; // scripts are behind Show More Features (and Customize NEO)
         const pick = await popMenu(e.clientX, e.clientY, [
           { label: t('New Book'), value: 'book' },
           { label: t('New Script'), value: 'script' }
@@ -1948,7 +1948,7 @@ function bookTile(meta, opts = {}) {
         await writeBookMeta(meta.id, meta);
         renderShelves();
       }
-    } else if (/\.(docx|txt|md|fountain|fdx)$/i.test(p)) {
+    } else if (IMPORT_FILE.test(p) || /\.(fountain|fdx)$/i.test(p)) {
       const homeShelf = library.shelves.find((s) => s.bookIds.includes(meta.id)) || library.shelves[0];
       const results = await window.neo.importFiles([p]);
       if (results.length) await addImportedBooks(results, homeShelf);
@@ -2650,7 +2650,7 @@ function renderChapters() {
         if (e.key === 'Enter' && e.shiftKey && (e.metaKey || e.ctrlKey)) {
           e.preventDefault();
           titleSpan.blur();
-          poetryUnderHeading(sec.querySelector('.chapter-body'), chId);
+          if (featureOn('poetry')) poetryUnderHeading(sec.querySelector('.chapter-body'), chId);
         } else if (e.key === 'Enter') { e.preventDefault(); titleSpan.blur(); }
         e.stopPropagation();
       });
@@ -2972,7 +2972,7 @@ function wireChapterBody(body, chId) {
     // hyphens set as dialogue dashes, the same as typing them
     const edges = caretEdges(body);
     if (html) {
-      document.execCommand('insertHTML', false, cleanPasteHtml(html, { style: dashStyle(), ...edges }, true));
+      document.execCommand('insertHTML', false, cleanPasteHtml(html, { style: dashStyle(), ...edges }, featureOn('paragraphStyles')));
       // the engine wraps inserted HTML (and its neighbours) in style spans
       if (body.querySelector('span:not(.ph-mark):not(.fn)')) {
         const caret = captureCaret();
@@ -3057,9 +3057,10 @@ function wireChapterBody(body, chId) {
       smartKeys(e, body);
       return;
     }
-    if (formatKeys(e)) return;
-    if (handlePoetry(e, body, chId)) return;
-    if (handleFlush(e, body, chId)) return;
+    if (featureOn('paragraphStyles') && formatKeys(e)) return;
+    if (featureOn('poetry') && handlePoetry(e, body, chId)) return;
+    if (featureOn('flush') && handleFlush(e, body, chId)) return;
+    if (plainShiftEnter(e, body, chId)) return;
     if (poetryBackspace(e, body, chId)) return;
     if (formatBackspace(e, body, chId)) return;
     if (sceneBreakDelete(e, body, chId)) return;
@@ -3071,7 +3072,7 @@ function wireChapterBody(body, chId) {
     if (e.key === 'Enter') dialogueDashKey(e, body);
     if (handleEnter(e, body, chId)) return;
     if (handleTabSpacing(e)) return;
-    if (markdownBlockKey(e, body, chId)) return;
+    if (featureOn('paragraphStyles') && markdownBlockKey(e, body, chId)) return;
     smartKeys(e, body);
   });
   // when the whole chapter loses focus, merge every fragmented text node
@@ -3101,7 +3102,9 @@ function wireChapterBody(body, chId) {
     if (e.inputType !== 'insertLineBreak' || e.defaultPrevented) return;
     if (isScript()) { e.preventDefault(); return; } // a script's lines are its elements
     const key = { key: 'Enter', shiftKey: true, metaKey: false, ctrlKey: false, altKey: false, preventDefault: () => e.preventDefault() };
-    if (!handlePoetry(key, body, chId)) handleFlush(key, body, chId);
+    if (featureOn('poetry') && handlePoetry(key, body, chId)) return;
+    if (featureOn('flush') && handleFlush(key, body, chId)) return;
+    plainShiftEnter(key, body, chId);
   });
   // the moment writing hits a ghost, it becomes prose
   // (it keeps its data-sec-id so the outline knows it's been written)
@@ -4103,6 +4106,16 @@ function handleFlush(e, body, chId) {
   return true;
 }
 
+// ⇧Enter with flush paragraphs turned off (Customize NEO): an ordinary new
+// paragraph, never a line break inside one
+function plainShiftEnter(e, body, chId) {
+  if (featureOn('flush') || e.key !== 'Enter' || !e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return false;
+  e.preventDefault();
+  document.execCommand('insertParagraph');
+  syncChapter(body, chId);
+  return true;
+}
+
 // Backspace at the very start of a poetry or flush paragraph makes it prose
 // again — the second Backspace then merges it upward like any paragraph
 function poetryBackspace(e, body, chId) {
@@ -4219,6 +4232,8 @@ function applyFormat(value) {
   if (isScript()) return; // a script's lines are its elements
   const at = selectionParas();
   if (!at) { toast(t('Click into a paragraph first')); return; }
+  const inline = value === 'bold' || value === 'italic' || value === 'underline' || value === 'strike';
+  if (!inline && !featureOn('paragraphStyles')) return;
   if (value === 'bold' || value === 'italic' || value === 'underline') inlineFormat(value);
   else if (value === 'strike') inlineFormat('strikeThrough');
   else if (value === 'clear') clearFormatting(at);
@@ -5275,7 +5290,7 @@ function frenchTypography() {
 // Manuscript → Notes → Outline → Darlings, round again. Caught here, like the
 // chapter keys, so no menu accelerator flashes the menu or takes AltGr input.
 function goToTab(name) {
-  if (!book || $('#editor-view').hidden || name === currentTab) return;
+  if (!book || $('#editor-view').hidden || name === currentTab || !featureOn(name)) return;
   if (document.querySelector('.modal-backdrop:not([hidden])')) return;
   switchTab(name);
 }
@@ -5287,8 +5302,10 @@ window.addEventListener('keydown', (e) => {
   if ($('#editor-view').hidden || document.querySelector('.modal-backdrop:not([hidden])')) return;
   e.preventDefault();
   e.stopPropagation();
-  const step = e.key === 'ArrowRight' ? 1 : TAB_ORDER.length - 1;
-  goToTab(TAB_ORDER[(TAB_ORDER.indexOf(currentTab) + step) % TAB_ORDER.length]);
+  // (past any tab that's turned off)
+  const shown = TAB_ORDER.filter((x) => featureOn(x));
+  const step = e.key === 'ArrowRight' ? 1 : shown.length - 1;
+  goToTab(shown[(Math.max(0, shown.indexOf(currentTab)) + step) % shown.length]);
 }, true);
 
 // Titles, outline lines, notes and shelf names get the same typography as
@@ -5395,24 +5412,24 @@ document.addEventListener('keydown', (e) => {
   const cmd = e.metaKey || e.ctrlKey;
   if (cmd && e.shiftKey && e.code === 'KeyX') {
     e.preventDefault();
-    if (currentTab === 'manuscript') insertPlaceholder();
+    if (currentTab === 'manuscript' && featureOn('placeholders')) insertPlaceholder();
   }
   if (cmd && e.shiftKey && e.code === 'KeyD') {
     e.preventDefault();
-    if (currentTab === 'manuscript') darlingFromKeyboard();
+    if (currentTab === 'manuscript' && featureOn('darlings')) darlingFromKeyboard();
   }
   if (cmd && e.shiftKey && !e.altKey && e.code === 'KeyN') {
     e.preventDefault();
-    if (currentTab === 'manuscript' && !fnBox && moreOn()) insertFootnote();
+    if (currentTab === 'manuscript' && !fnBox && moreOn() && featureOn('footnotes')) insertFootnote();
   }
   // ⌘S takes a snapshot of the book (SNAPSHOTS)
   if (cmd && !e.altKey && !e.shiftKey && (e.code === 'KeyS' || e.key === 's')) {
     e.preventDefault();
-    snapshotNow();
+    if (featureOn('snapshots')) snapshotNow();
   }
   if (isSpellcheckShortcut(e)) {
     e.preventDefault();
-    toggleSpellcheck();
+    if (featureOn('spellcheck')) toggleSpellcheck();
   }
   if (e.key === 'Escape') {
     // an input method's Esc cancels its own composition, nothing more
@@ -8779,7 +8796,7 @@ async function notesPageToDarlings(chId, label) {
 /* ================================================================== */
 
 $$('.tab').forEach((tab) => {
-  tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+  tab.addEventListener('click', () => { if (featureOn(tab.dataset.tab)) switchTab(tab.dataset.tab); });
   tab.addEventListener('dblclick', async () => {
     const kind = tab.dataset.tab;
     if (kind !== 'notes' && kind !== 'outline') return;
@@ -9039,6 +9056,7 @@ function switchTab(name) {
   }
   if (book && !notesPageOk(notesPage)) notesPage = 'book';
   currentTab = name;
+  syncPaneLayout();
   sidePaneForTab(name);
   queueSideCards();
   applyBright();
@@ -12412,7 +12430,7 @@ function updateCounters() {
     const before = typeof book.wordCount === 'number' ? book.wordCount : total;
     book.wordCount = total;
     scheduleMetaSave();
-    if (before < PAINT_AT && total >= PAINT_AT && !(library.coverArt && library.coverArt.auto === false) && paintable(book)) {
+    if (before < PAINT_AT && total >= PAINT_AT && featureOn('coverArt') && !(library.coverArt && library.coverArt.auto === false) && paintable(book)) {
       requestPaint(book, bookPlainText());
     }
   }
@@ -14171,7 +14189,7 @@ document.addEventListener('keydown', (e) => {
   // on Linux, Ctrl+Shift+U belongs to the input method (it types a Unicode
   // character by its code), so Read Aloud there is Ctrl+Shift+K (#287)
   if (cmd && e.shiftKey && !e.altKey && e.code === (IS_LINUX ? 'KeyK' : 'KeyU')) {
-    if (!book || $('#editor-view').hidden || !moreOn()) return;
+    if (!book || $('#editor-view').hidden || !moreOn() || !featureOn('readAloud')) return;
     e.preventDefault();
     e.stopPropagation();
     toggleReadAloud();
@@ -14491,9 +14509,10 @@ const escAttr = (s) => escHtml(s).replace(/"/g, '&quot;');
 // and by dropping files from Finder straight onto a shelf.
 async function addImportedBooks(results, shelf) {
   // a Fountain or Final Draft file is a script: behind Show More Features
-  if (!moreOn()) {
+  // (and Customize NEO's Screenplays)
+  if (!moreOn() || !featureOn('scripts')) {
     results = results.filter((r) => !r.script);
-    if (!results.length) { toast(t('No .docx, .txt, or .md files in that drop')); return; }
+    if (!results.length) { toast(t('Nothing in that drop NEO can import')); return; }
   }
   shelf = shelf || shelvesFor(currentAuthor().id)[0] || library.shelves[0];
   let ok = 0;
@@ -14537,13 +14556,29 @@ async function addImportedBooks(results, shelf) {
   else if (scripts) toast(t('{n} scripts imported onto “{shelf}”', { n: scripts, shelf: shelf.name }), 6000);
 }
 
-// One imported chapter's paragraphs as a chapter body
+// One imported chapter's paragraphs as a chapter body, each with its
+// paragraph style (a heading, a quote, a list item) where it had one
+const IMPORT_FMTS = ['h1', 'h2', 'quote', 'ul', 'ol'];
 function importedChapterHTML(ch) {
   return ch.paras.map((p) => {
     if (p.scene) return '<p class="scene-break">***</p>';
+    const fmt = IMPORT_FMTS.includes(p.fmt) ? ` data-fmt="${p.fmt}"` : '';
     // hyphens set as dialogue dashes, the same as typing them
-    return `<p>${importedEmphasis(escHtml(dialogueDashes(p.text || '', dashStyle())))}</p>`;
+    return `<p${fmt}>${importedEmphasis(escHtml(dialogueDashes(p.text || '', dashStyle())))}</p>`;
   }).join('') || '<p><br></p>';
+}
+
+// the documents import reads (main.js and importers.js read them)
+const IMPORT_FILE = /\.(docx|txt|md|markdown|text|html?|xhtml|epub|odt|pdf|rtf|doc|webarchive|gdoc)$/i;
+
+// File → Import from a Link…: a Google Doc (shared as "Anyone with the
+// link"), a file on Google Drive, or any web page, as a book on the shelf
+async function importFromLink() {
+  const url = await askInput(t('Import from a link'), t('A Google Doc, a file on Google Drive, or a web page: https://…'), '');
+  if (!url || !url.trim()) return;
+  toast(t('Importing…'));
+  const results = await window.neo.importUrl(url.trim());
+  if (results.length) await addImportedBooks(results, shelvesFor(currentAuthor().id)[0] || library.shelves[0]);
 }
 
 // Files brought into the open book as chapters (#178), before the chapter
@@ -14602,8 +14637,8 @@ async function importChaptersIntoBook(results, beforeId) {
 async function importDroppedChapters(files, beforeId) {
   const paths = [...files]
     .map((f) => { try { return window.neo.pathForFile(f); } catch { return null; } })
-    .filter((p) => p && /\.(docx|txt|md)$/i.test(p));
-  if (!paths.length) { toast(t('No .docx, .txt, or .md files in that drop')); return; }
+    .filter((p) => p && IMPORT_FILE.test(p));
+  if (!paths.length) { toast(t('Nothing in that drop NEO can import')); return; }
   const bookId = book.id;
   toast(t('Importing…'));
   const results = await window.neo.importFiles(paths);
@@ -15159,7 +15194,7 @@ function reportViewState() {
   if (!window.neo.viewState || !library) return;
   const payload = {
     focus: focusLevel,
-    pageTheme: library.pageTheme || 'night',
+    pageTheme: library.pageTheme || 'light',
     uiBright: document.body.classList.contains('bright'),
     bodyFont: (library.fonts && library.fonts.body) || '',
     dropCap: (library.fonts && library.fonts.dropcap) || 'literary',
@@ -15526,7 +15561,7 @@ function openStats() {
   }
 }
 
-$('#goal-counter').onclick = openStats;
+$('#goal-counter').onclick = () => { if (featureOn('goals')) openStats(); };
 
 /* ================================================================== */
 /*  MENU: Help + fonts                                                 */
@@ -15568,8 +15603,9 @@ function applyFonts() {
   }
   document.body.classList.toggle('no-dropcap', f.dropcap === 'none');
   document.body.classList.toggle('night', library.pageTheme === 'night');
-  // Light: the paper page in a light room, the whole app with it
-  document.body.classList.toggle('light', library.pageTheme === 'light');
+  // Light: the paper page in a light room, the whole app with it (this
+  // version's default)
+  document.body.classList.toggle('light', (library.pageTheme || 'light') === 'light');
   // the system's "Increase contrast" turns it on too, until the writer
   // chooses in the View menu
   applyBright();
@@ -15793,30 +15829,34 @@ function shortcutSections() {
   return bookShortcutSections();
 }
 function bookShortcutSections() {
-  // the keys of features behind File → Show More Features show with them
+  // the keys of features behind File → Show More Features show with them,
+  // and those of a feature turned off in Customize NEO not at all
   const more = moreOn();
+  const on = (id, rows) => (featureOn(id) ? rows : []);
   return [
     { title: tk('Writing'), rows: [
       [tk('Enter ×2'), tk('Insert a section break')],
       [tk('Enter ×3'), tk('Start a new chapter')],
-      [K('⇧Enter', 'Shift+Enter'), tk('A paragraph with no indent'), tk('Again for another; Enter goes back to prose.')],
-      ...(more ? [[K('⌘⇧Enter', 'Ctrl+Shift+Enter'), tk('Start or continue a poetry paragraph'), tk('Also works from a chapter heading.')]] : []),
-      [KPH, tk('Insert a placeholder note')],
-      ...(more ? [[KFN, tk('Add a footnote'), tk('Type the note, then Enter to go back to writing. Click its number to change it.')]] : []),
-      [KDA, tk('Move selected text to Darlings')],
-      ...(more ? [[K('⌘⇧U', IS_LINUX ? 'Ctrl+Shift+K' : 'Ctrl+Shift+U'), tk('Read aloud from the cursor'), tk('Again, Esc or any key stops it. Uses your computer’s own voice.')]] : [])
+      ...on('flush', [[K('⇧Enter', 'Shift+Enter'), tk('A paragraph with no indent'), tk('Again for another; Enter goes back to prose.')]]),
+      ...on('poetry', more ? [[K('⌘⇧Enter', 'Ctrl+Shift+Enter'), tk('Start or continue a poetry paragraph'), tk('Also works from a chapter heading.')]] : []),
+      ...on('placeholders', [[KPH, tk('Insert a placeholder note')]]),
+      ...on('footnotes', more ? [[KFN, tk('Add a footnote'), tk('Type the note, then Enter to go back to writing. Click its number to change it.')]] : []),
+      ...on('darlings', [[KDA, tk('Move selected text to Darlings')]]),
+      ...on('readAloud', more ? [[K('⌘⇧U', IS_LINUX ? 'Ctrl+Shift+K' : 'Ctrl+Shift+U'), tk('Read aloud from the cursor'), tk('Again, Esc or any key stops it. Uses your computer’s own voice.')]] : [])
     ] },
     { title: tk('Formatting'), rows: [
-      [['*…*', '**…**', '***…***'], tk('Italic, bold, the Markdown way'), tk('Typed around a word (or pasted). Undo right after keeps the asterisks. Format → Markdown Emphasis turns it off.')],
+      ...on('markdown', [[['*…*', '**…**', '***…***'], tk('Italic, bold, the Markdown way'), tk('Typed around a word (or pasted). Undo right after keeps the asterisks. Format → Markdown Emphasis turns it off.')]]),
       [K('⌘U', 'Ctrl+U'), tk('Underline')],
       [K('⌘⇧S', 'Ctrl+Shift+S'), tk('Strikethrough'), tk('Or ~~…~~ around the words.')],
-      [K('⌘⌥1', 'Ctrl+Alt+1'), tk('Heading'), tk('Or # and a space at the start of a line.')],
-      [K('⌘⌥2', 'Ctrl+Alt+2'), tk('Subheading'), tk('Or ## and a space.')],
-      [K('⌘⇧9', 'Ctrl+Shift+9'), tk('Block quote'), tk('Or > and a space.')],
-      [K('⌘⇧8', 'Ctrl+Shift+8'), tk('Bulleted list'), tk('Or - and a space.')],
-      [K('⌘⇧7', 'Ctrl+Shift+7'), tk('Numbered list'), tk('Or 1. and a space.')],
-      [K('⌘⌥0', 'Ctrl+Alt+0'), tk('Back to a normal paragraph')],
-      [K('⌘\\', 'Ctrl+\\'), tk('Clear formatting')],
+      ...on('paragraphStyles', [
+        [K('⌘⌥1', 'Ctrl+Alt+1'), tk('Heading'), tk('Or # and a space at the start of a line.')],
+        [K('⌘⌥2', 'Ctrl+Alt+2'), tk('Subheading'), tk('Or ## and a space.')],
+        [K('⌘⇧9', 'Ctrl+Shift+9'), tk('Block quote'), tk('Or > and a space.')],
+        [K('⌘⇧8', 'Ctrl+Shift+8'), tk('Bulleted list'), tk('Or - and a space.')],
+        [K('⌘⇧7', 'Ctrl+Shift+7'), tk('Numbered list'), tk('Or 1. and a space.')],
+        [K('⌘⌥0', 'Ctrl+Alt+0'), tk('Back to a normal paragraph')],
+        [K('⌘\\', 'Ctrl+\\'), tk('Clear formatting')]
+      ]),
       ...(more ? [
         [K('⌘⇧L', 'Ctrl+Shift+L'), tk('Align paragraph left')],
         [K('⌘⇧C', 'Ctrl+Shift+C'), tk('Center paragraph')],
@@ -15834,14 +15874,14 @@ function bookShortcutSections() {
     { title: tk('Editing'), rows: [
       [K('⌘⌥⇧V', 'Ctrl+Shift+V'), tk('Paste and match style')],
       [K('⌘F', 'Ctrl+F'), tk('Find and replace')],
-      [K('⌘;', 'Ctrl+;'), tk('Toggle spellcheck pass')]
+      ...on('spellcheck', [[K('⌘;', 'Ctrl+;'), tk('Toggle spellcheck pass')]])
     ] },
     { title: tk('App & files'), rows: [
       [KHELP, tk('Keyboard shortcuts')],
-      [K('⌘S', 'Ctrl+S'), tk('Take a snapshot of the book'), tk('NEO saves as you type; a snapshot keeps the book as it stands now. They’re on the Darlings tab.')],
-      [K('⌘,', 'Ctrl+,'), tk('Goals and writing sprints')],
+      ...on('snapshots', [[K('⌘S', 'Ctrl+S'), tk('Take a snapshot of the book'), tk('NEO saves as you type; a snapshot keeps the book as it stands now. They’re on the Darlings tab.')]]),
+      ...on('goals', [[K('⌘,', 'Ctrl+,'), tk('Goals and writing sprints')]]),
       [K('⌘⇧I', 'Ctrl+Shift+I'), tk('Import manuscripts')],
-      [K('⌘E', 'Ctrl+E'), tk('Email a draft to yourself')]
+      ...on('email', [[K('⌘E', 'Ctrl+E'), tk('Email a draft to yourself')]])
     ] },
     { title: tk('View & window'), rows: [
       [[K('⌘⇧F', 'Ctrl+Shift+F'), K('⌘Enter', 'Ctrl+Enter'), ...(IS_MAC ? [] : ['F11'])], tk('Toggle full screen')],
@@ -18336,11 +18376,12 @@ window.neo.onMenu(async (msg) => {
     library.copyChapterHeadings = msg.checked;
     await writeLibrary(library);
   }
-  if (msg.type === 'emailDraft') doEmailDraft();
-  if (msg.type === 'snapshot' && book && !$('#editor-view').hidden) snapshotNow();
+  if (msg.type === 'emailDraft' && featureOn('email')) doEmailDraft();
+  if (msg.type === 'snapshot' && book && !$('#editor-view').hidden && featureOn('snapshots')) snapshotNow();
+  if (msg.type === 'customize') customizeNeo();
   if (msg.type === 'emailSettings') emailSettings();
   if (msg.type === 'find') openSearch();
-  if (msg.type === 'spellcheck') toggleSpellcheck();
+  if (msg.type === 'spellcheck' && featureOn('spellcheck')) toggleSpellcheck();
   if (msg.type === 'spellLanguage') changeSpellLanguage(msg.value);
   if (msg.type === 'reshelve') reshelveBook();
   if (msg.type === 'typewriter') toggleTypewriter();
@@ -18352,15 +18393,16 @@ window.neo.onMenu(async (msg) => {
   if (msg.type === 'focus') setFocus(msg.value);
   if (msg.type === 'focusCycle') cycleFocus();
   if (msg.type === 'import') importBooks();
+  if (msg.type === 'importLink') importFromLink();
   if (msg.type === 'importChapters') importChapters();
-  if (msg.type === 'stats') openStats();
+  if (msg.type === 'stats' && featureOn('goals')) openStats();
   if (msg.type === 'chapterStep') gotoChapter(msg.value);
   if (msg.type === 'writingStyle') {
     library.writingStyle = msg.value;
     await writeLibrary(library);
     if (window.neo.writingStyleState) window.neo.writingStyleState(library.writingStyle);
   }
-  if (msg.type === 'coverArt') openCoverArt();
+  if (msg.type === 'coverArt' && featureOn('coverArt')) openCoverArt();
   // a script's lines sit where they print: no alignment, poetry or flush
   if (msg.type === 'align' && !(book && isScript())) {
     applyAlign(msg.value);
@@ -18667,6 +18709,137 @@ $('#nav-list').addEventListener('keydown', (e) => {
 });
 
 /* ================================================================== */
+/*  CUSTOMIZE NEO — View → Customize NEO…                              */
+/*  Any tab, pane or feature the writer doesn't use can go: its tab,   */
+/*  pane, menu items and keys step out of the way (library.featuresOff,*/
+/*  the ids of what's off). Nothing a book holds is touched, and       */
+/*  turning a feature back on brings it back as it was. Right-click a  */
+/*  tab to hide it. Markdown is Format → Markdown Emphasis's own       */
+/*  setting (library.markdownOff), shown here too.                     */
+/* ================================================================== */
+
+const FEATURES = [
+  { group: tk('Tabs'), items: [
+    { id: 'notes', label: tk('Notes tab'), desc: tk('The book’s notes, and a page for each chapter.') },
+    { id: 'outline', label: tk('Outline tab'), desc: tk('The outline, as index cards or a list.') },
+    { id: 'darlings', label: tk('Darlings tab'), desc: tk('Passages set aside (⌘⇧D) and the list of snapshots. Deleted chapters still go there, and come back when it’s on.') }
+  ] },
+  { group: tk('Around the page'), items: [
+    { id: 'chapters', label: tk('Chapters panel'), desc: tk('The list of chapters at the left edge. ⌥⌘↑ and ⌥⌘↓ still move between chapters.') },
+    { id: 'sidePane', label: tk('Notes panel while writing'), desc: tk('The placeholder notes and outline cards at the right edge of the page.') },
+    { id: 'counters', label: tk('Word and page counters'), desc: tk('The counts in the bottom bar.') },
+    { id: 'goals', label: tk('Goals and sprints'), desc: tk('Today’s words in the bottom bar, and Goals… (⌘,).') },
+    { id: 'zoom', label: tk('Zoom control'), desc: tk('The zoom buttons in the bottom bar. Pinching and ⌘+ / ⌘− still zoom.') }
+  ] },
+  { group: tk('Writing'), items: [
+    { id: 'paragraphStyles', label: tk('Headings, quotes and lists'), desc: tk('Format → Paragraph Style, its keys, and # > - 1. at the start of a line.') },
+    { id: 'markdown', label: tk('Markdown as you type'), desc: tk('*italic*, **bold** and ~~struck~~ as you type or paste.') },
+    { id: 'flush', label: tk('Flush paragraphs'), desc: tk('⇧Enter for a paragraph with no indent. Off, ⇧Enter is an ordinary new paragraph.') },
+    { id: 'poetry', label: tk('Poetry paragraphs'), desc: tk('⌘⇧Enter for an indented italic paragraph.') },
+    { id: 'placeholders', label: tk('Placeholders'), desc: tk('⌘⇧X drops a mark and a note to come back to.') },
+    { id: 'footnotes', label: tk('Footnotes'), desc: tk('⌘⇧N adds a footnote.') },
+    { id: 'spellcheck', label: tk('Spellcheck'), desc: tk('The spellcheck pass (⌘;) and its language.') },
+    { id: 'readAloud', label: tk('Read aloud'), desc: tk('⌘⇧U reads from the cursor in your computer’s voice.') }
+  ] },
+  { group: tk('Books'), items: [
+    { id: 'snapshots', label: tk('Snapshots'), desc: tk('⌘S and File → Take Snapshot. NEO still keeps its own snapshot at the start of each writing day.') },
+    { id: 'email', label: tk('Email drafts'), desc: tk('Email Draft to Myself (⌘E) and its settings.') },
+    { id: 'scripts', label: tk('Screenplays'), desc: tk('New Script on a shelf’s +, and importing Fountain and Final Draft files.') },
+    { id: 'coverArt', label: tk('Painted covers'), desc: tk('Covers painted from your story, and File → Cover Art….') },
+    { id: 'binding', label: tk('Bound shelves'), desc: tk('Binding a shelf into one book. A shelf already bound stays bound.') }
+  ] }
+];
+const FEATURE_IDS = FEATURES.flatMap((g) => g.items.map((f) => f.id));
+
+function featureOn(id) {
+  if (!library) return true;
+  if (id === 'markdown') return !library.markdownOff;
+  return !(library.featuresOff || []).includes(id);
+}
+// turn one on or off (the caller writes the library and applies it)
+function setFeature(id, on) {
+  if (id === 'markdown') {
+    if (on) delete library.markdownOff; else library.markdownOff = true;
+    return;
+  }
+  const off = new Set(library.featuresOff || []);
+  if (on) off.delete(id); else off.add(id);
+  library.featuresOff = [...off].filter((x) => FEATURE_IDS.includes(x));
+  if (!library.featuresOff.length) delete library.featuresOff;
+}
+
+// what's off, on the page (a class for each, styles.css hides them), in the
+// menus (main.js) and in whatever is running
+function applyFeatures() {
+  if (!library) return;
+  for (const id of FEATURE_IDS) document.body.classList.toggle('feature-off-' + id, !featureOn(id));
+  if (window.neo.featuresState) window.neo.featuresState(FEATURE_IDS.filter((id) => !featureOn(id)));
+  syncPaneLayout();
+  if (book && !$('#editor-view').hidden && !featureOn(currentTab)) switchTab('manuscript');
+  if (!featureOn('spellcheck') && spellOn) toggleSpellcheck();
+  if (!featureOn('readAloud') && reading) stopReadAloud();
+}
+// a pane that's off makes no room beside the page, even when it was kept open
+function syncPaneLayout() {
+  const ev = $('#editor-view');
+  if (!ev) return;
+  ev.classList.toggle('nav-pinned', featureOn('chapters') && $('#nav-pane').dataset.pinned === '1');
+  ev.classList.toggle('side-pinned', (featureOn('sidePane') || currentTab !== 'manuscript') && $('#side-pane').dataset.pinned === '1');
+  document.body.dataset.tab = currentTab || 'manuscript';
+}
+
+async function customizeNeo() {
+  if (document.querySelector('.modal-backdrop.customize')) return;
+  const bd = document.createElement('div');
+  bd.className = 'modal-backdrop customize';
+  bd.innerHTML = `
+    <div class="modal customize-modal" style="width:560px">
+      <h2 style="font-size:17px">${escHtml(t('Customize NEO'))}</h2>
+      <p class="cz-lead">${escHtml(t('Turn off what you don’t use. Its tab, panel, menu items and keys go away; nothing in your books is touched, and turning it back on brings it all back.'))}</p>
+      <div class="cz-groups">${FEATURES.map((g) => `
+        <section class="cz-group"><h3>${escHtml(t(g.group))}</h3>${g.items.map((f) => `
+          <label class="cz-row"><input type="checkbox" data-id="${f.id}"${featureOn(f.id) ? ' checked' : ''}>
+            <span class="cz-text"><strong>${escHtml(t(f.label))}</strong><span>${escHtml(t(f.desc))}</span></span></label>`).join('')}
+        </section>`).join('')}
+      </div>
+      <div class="cz-actions">
+        <button class="cz-all btn-quiet">${escHtml(t('Turn everything on'))}</button>
+        <button class="m-ok btn-gold">${escHtml(t('Done'))}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(bd);
+  const changed = async () => { await writeLibrary(library); applyFeatures(); };
+  bd.querySelectorAll('input[data-id]').forEach((box) => {
+    box.onchange = () => { setFeature(box.dataset.id, box.checked); changed(); };
+  });
+  bd.querySelector('.cz-all').onclick = () => {
+    for (const id of FEATURE_IDS) setFeature(id, true);
+    bd.querySelectorAll('input[data-id]').forEach((box) => { box.checked = true; });
+    changed();
+  };
+  const done = () => bd.remove();
+  bd.querySelector('.m-ok').onclick = done;
+  bd.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(); } });
+  bd.querySelector('.m-ok').focus();
+}
+
+// right-click a tab: hide it (or open the rest of the choices)
+$$('.tab').forEach((tab) => {
+  tab.addEventListener('contextmenu', async (e) => {
+    e.preventDefault();
+    const id = tab.dataset.tab;
+    const items = id === 'manuscript' ? [] : [{ label: t('Hide the {tab} Tab', { tab: tab.textContent.trim() }), value: 'hide' }];
+    const pick = await popMenu(e.clientX, e.clientY, [...items, { label: t('Customize NEO…'), value: 'customize' }], { from: tab });
+    if (pick === 'hide') {
+      setFeature(id, false);
+      await writeLibrary(library);
+      applyFeatures();
+      toast(t('Tab hidden. View → Customize NEO… brings it back.'), 4000);
+    } else if (pick === 'customize') customizeNeo();
+  });
+});
+
+/* ================================================================== */
 /*  SIMPLE NEO — File → Show More Features                             */
 /*  NEO opens simple. The switch brings back everything else: the      */
 /*  menu items main.js marks `more`, and the keys and right-click      */
@@ -18729,8 +18902,17 @@ async function setMoreFeatures(on) {
   toast(on ? t('More features on') : t('Simple NEO. File → Show More Features brings back the rest.'));
 }
 
-loadLibrary().then(() => {
+loadLibrary().then(async () => {
+  // This version opens light, page and all. A library that was dark before
+  // it is made light once; View → Page changes it back any time.
+  if (!library.lightDefault) {
+    library.lightDefault = true;
+    library.pageTheme = 'light';
+    await writeLibrary(library);
+    reportViewState();
+  }
   applyLook();
+  applyFeatures();
   typewriterEnabled = !!library.typewriter;
   applyTypewriter();
   // the voices load on the first ask, which on Linux can take a moment: ask

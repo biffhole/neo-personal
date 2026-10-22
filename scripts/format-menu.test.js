@@ -156,7 +156,8 @@ function shownTicks(items) {
   }
   return groups.flatMap((g) => g.some((i) => i.checked) ? g.filter((i) => i.checked) : [g[0]]).map((i) => i.label);
 }
-const view = (st) => ({ focus: 'off', pageTheme: 'night', uiBright: false, bodyFont: 'Georgia', dropCap: 'literary', align: 'left', ...st });
+// (light: this version's default page, the one the menu starts with)
+const view = (st) => ({ focus: 'off', pageTheme: 'light', uiBright: false, bodyFont: 'Georgia', dropCap: 'literary', align: 'left', ...st });
 
 describe('Format menu: Drop Cap Style ticks one choice (#422)', () => {
   const choices = { literary: 'Literary', fantasy: 'Fantasy', scifi: 'Sci-Fi', none: 'Off' };

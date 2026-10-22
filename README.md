@@ -8,6 +8,9 @@ My own version of [NEO](https://github.com/hughhowey/neo), the writing app by Hu
 - **Paste keeps formatting.** Paste from Google Docs, Word or a web page and headings, lists, quotes and section breaks come along, not just bold and italic. Paste Markdown (from a notes app, a code editor, or a chatbot) and it gets turned into the same formatting instead of showing the asterisks and hashes.
 - **Copying a chapter copies its heading.** Select from the top of a chapter (or just press Cmd+A in it) and copy, and "Chapter 3 — Title" comes along above the text. Edit → Copy Chapter Headings turns this off.
 - **Markdown stays on in simple NEO.** The original hides Markdown typing until you turn on File → Show More Features. Here it's on either way; Format → Markdown Emphasis turns it off.
+- **Light by default.** NEO opens light, page and all. View → Page switches to Night or Paper any time.
+- **Turn off what you don't use.** View → Customize NEO… lists every tab, panel and feature: the Notes, Outline and Darlings tabs, the chapters and notes panels, the counters, goals, zoom control, headings and lists, Markdown, flush and poetry paragraphs, placeholders, footnotes, spellcheck, read aloud, snapshots, email drafts, screenplays, painted covers and bound shelves. Untick one and its tab, panel, menu items and keys go away; tick it and it's back. Right-click a tab to hide just that tab. Nothing in your books is touched.
+- **Import from almost anything.** Besides .docx, .txt and .md: PDF, EPUB, OpenDocument (.odt), web pages (.html), RTF and old Word .doc files, and links: File → Import from a Link… takes a Google Doc (shared as "Anyone with the link"), a file on Google Drive or any web page. A Google Docs shortcut (.gdoc) from Drive for desktop works too. NEO finds the chapters and their titles, the book's title and author, and keeps bold, italic, headings inside chapters, lists and quotes. From a PDF it rebuilds the paragraphs and leaves out page numbers and running heads (a scanned PDF has no text to import).
 - **No automatic updates.** This version never checks for new releases or installs them, so an official NEO update can't replace it. The Check for Update menu item is gone too.
 
 Save cover as image, underline and strikethrough, and the zoom and shelf fixes (sent upstream as [hughhowey/neo#132](https://github.com/hughhowey/neo/pull/132) and [#130](https://github.com/hughhowey/neo/pull/130)) used to be on this list. The original NEO has all of them now, so this version uses its versions.
@@ -96,7 +99,7 @@ EPUB 3 with a proper table of contents built to KDP's guidelines, Word .docx, PD
 
 **Import** 
 
-Bring in existing .docx, .txt, and .md manuscripts; chapters and scene breaks are detected automatically. This is still a bit rough and might require you to tweak things. It will try to grab your title and remove that from the body, and it seems to be working okay.
+Bring in existing manuscripts: .docx, .txt, .md, PDF, EPUB, .odt, .html, .rtf and .doc, or a link to a Google Doc or a web page (File → Import from a Link…). Chapters and scene breaks are detected automatically, along with headings, lists and quotes. This is still a bit rough and might require you to tweak things. It will try to grab your title and remove that from the body, and it seems to be working okay.
 
 **Backups** 
 

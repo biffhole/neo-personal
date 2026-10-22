@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('neo', {
   setSecret: (name, value) => ipcRenderer.invoke('secret:set', name, value),
   hasSecret: (name) => ipcRenderer.invoke('secret:has', name),
   importFiles: (paths) => ipcRenderer.invoke('import:files', paths),
+  importUrl: (url) => ipcRenderer.invoke('import:url', url),
   pathForFile: (file) => webUtils.getPathForFile(file),
   fullscreenEscape: () => ipcRenderer.invoke('fullscreen:escape'),
   fullscreenToggle: () => ipcRenderer.invoke('fullscreen:toggle'),
@@ -76,6 +77,7 @@ contextBridge.exposeInMainWorld('neo', {
 
   writingStyleState: (st) => ipcRenderer.send('style:state', st),
   moreState: (on) => ipcRenderer.send('more:state', on),
+  featuresState: (list) => ipcRenderer.send('features:state', list),
   viewState: (st) => ipcRenderer.send('view:state', st),
   onMenu: (cb) => ipcRenderer.on('menu', (_e, msg) => cb(msg))
 });

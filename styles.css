@@ -2379,3 +2379,32 @@ html:lang(ko) :is(#aux-paper h2, .pen-slot, .shelf-label, .shelf-bound-mark, .pt
   .side-cards-title, .side-card-head, .notes-part, .ns-label, #notes-up, #notes-outline b) {
   letter-spacing: 0.04em;
 }
+
+/* ---- Customize NEO (View → Customize NEO…): what's turned off steps out ---- */
+body.feature-off-notes .tab[data-tab="notes"],
+body.feature-off-outline .tab[data-tab="outline"],
+body.feature-off-darlings .tab[data-tab="darlings"],
+body.feature-off-chapters #nav-pane, body.feature-off-chapters #nav-hotzone,
+body.feature-off-sidePane[data-tab="manuscript"] #side-pane,
+body.feature-off-sidePane[data-tab="manuscript"] #side-hotzone,
+body.feature-off-counters #word-counter, body.feature-off-counters #pos-counter,
+body.feature-off-goals #goal-counter,
+body.feature-off-zoom #zoom-control { display: none !important; }
+
+.customize-modal { max-height: calc(100vh - 48px); }
+.customize-modal .cz-lead { font-size: 13px; opacity: 0.8; }
+.customize-modal .cz-group { margin-bottom: 18px; }
+.customize-modal .cz-group h3 {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+  opacity: 0.6; margin: 0 0 8px;
+}
+.customize-modal label.cz-row {
+  display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 7px 8px;
+  border-radius: 6px; cursor: pointer;
+}
+.customize-modal label.cz-row:hover { background: rgba(128, 128, 128, 0.1); }
+.customize-modal .cz-row input { width: auto; margin: 3px 0 0; flex: none; accent-color: var(--accent); }
+.customize-modal .cz-text { display: flex; flex-direction: column; gap: 2px; }
+.customize-modal .cz-text strong { font-weight: 500; font-size: 13.5px; }
+.customize-modal .cz-text span { font-size: 12px; opacity: 0.65; line-height: 1.4; }
+.customize-modal .cz-actions { display: flex; justify-content: space-between; margin-top: 8px; }
