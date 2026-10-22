@@ -8892,6 +8892,8 @@ async function moveSelectionToDarlings(html, text) {
 
   let anchorPrefix = null;
   let anchorSuffix = null;
+  let wholePara = false; // a whole paragraph went, so it comes back as one
+  let wholeFmt = ''; // with its paragraph style
   if (range) {
     const startNode = range.startContainer.nodeType === Node.TEXT_NODE ? range.startContainer.parentElement : range.startContainer;
     const startBlock = startNode && startNode.closest ? startNode.closest('p') : null;
@@ -8902,7 +8904,9 @@ async function moveSelectionToDarlings(html, text) {
         && startBlock.parentElement && startBlock.parentElement.children.length > 1) {
       const prev = startBlock.previousElementSibling;
       const next = startBlock.nextElementSibling;
+      wholeFmt = startBlock.dataset.fmt || '';
       startBlock.remove();
+      wholePara = true;
       if (prev) { range.selectNodeContents(prev); range.collapse(false); }
       else if (next) { range.selectNodeContents(next); range.collapse(true); }
     }
@@ -8932,8 +8936,9 @@ async function moveSelectionToDarlings(html, text) {
   // keep only the prose (paragraphs when the drag spanned more than one)
   let cleanHtml = null;
   if (html) {
-    const cleaned = cleanPasteHtml(html);
-    cleanHtml = /\n/.test(text.trim()) && !/<p[\s>]/i.test(cleaned) ? '<p>' + cleaned + '</p>' : cleaned;
+    const cleaned = cleanPasteHtml(html, undefined, true);
+    cleanHtml = (wholePara || /\n/.test(text.trim())) && !/<p[\s>]/i.test(cleaned)
+      ? `<p${wholeFmt ? ` data-fmt="${wholeFmt}"` : ''}>` + cleaned + '</p>' : cleaned;
   }
   darlings.unshift({
     id: did,
@@ -12327,12 +12332,22 @@ async function restoreDarling(id) {
       if (at) {
         let scrollTo = at.startContainer.parentElement?.closest?.('p') || body;
         if (d.html && /<p[\s>]/i.test(d.html)) {
-          // block content: paragraphs go back in after the host paragraph
+          // block content: paragraphs go back in after the host paragraph,
+          // or before it when the cut was at its very start (the book's
+          // opening paragraph, cut whole, leaves the spot before the next)
           const holder = document.createElement('div');
           holder.innerHTML = d.html;
           let ref = scrollTo === body ? body.lastElementChild : scrollTo;
+          let before = false;
+          if (scrollTo !== body && scrollTo.textContent.trim()) {
+            const head = document.createRange();
+            head.setStart(scrollTo, 0);
+            head.setEnd(at.startContainer, at.startOffset);
+            before = !head.toString().trim();
+          }
           scrollTo = holder.firstElementChild || scrollTo;
-          for (const n of [...holder.childNodes]) { ref.after(n); ref = n; }
+          if (before) for (const n of [...holder.childNodes]) ref.before(n);
+          else for (const n of [...holder.childNodes]) { ref.after(n); ref = n; }
         } else {
           // inline content: slot it right where the caret was
           at.insertNode(document.createRange().createContextualFragment(d.html || d.text));
