@@ -1,11 +1,15 @@
 package com.hughhowey.neopocket;
 
 import android.content.Intent;
+import android.content.res.Configuration;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.Settings;
+import android.view.View;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.core.view.WindowCompat;
@@ -24,13 +28,50 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(NeoBarsPlugin.class);
+        registerPlugin(NeoPdfPlugin.class);
         super.onCreate(savedInstanceState);
         if (!hasFilesAccess()) {
             askedForFilesAccess = true;
             openFilesAccessSettings();
         }
         wireBackGesture();
+        paintBehindThePage(Color.rgb(0x19, 0x19, 0x19));
         giveNeoTheWholeScreen();
+        // the page then reports its own background (night, paper or light)
+        // through NeoBarsPlugin, so whatever shows around it matches
+    }
+
+    // "rgb(25, 25, 25)" → a color; anything else → 0 (leave things be)
+    static int parseCss(String css) {
+        if (css == null) return 0;
+        String[] n = css.replaceAll("[^0-9,.]", "").split(",");
+        if (n.length < 3) return 0;
+        try {
+            return Color.rgb(Math.round(Float.parseFloat(n[0])), Math.round(Float.parseFloat(n[1])), Math.round(Float.parseFloat(n[2])));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    // Everything that can show around the page — the window, the camera
+    // cutout band on Samsung phones, the bars when a swipe peeks them —
+    // takes the page's color, with icons that read against it.
+    @SuppressWarnings("deprecation")
+    void paintBehindThePage(int color) {
+        getWindow().setBackgroundDrawable(new ColorDrawable(color));
+        getWindow().getDecorView().setBackgroundColor(color);
+        View web = getBridge() != null ? getBridge().getWebView() : null;
+        if (web != null) {
+            web.setBackgroundColor(color);
+            if (web.getParent() instanceof View) ((View) web.getParent()).setBackgroundColor(color);
+        }
+        getWindow().setStatusBarColor(color);
+        getWindow().setNavigationBarColor(color);
+        boolean lightPage = (Color.red(color) * 299 + Color.green(color) * 587 + Color.blue(color) * 114) / 1000 > 150;
+        WindowInsetsControllerCompat bars = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        bars.setAppearanceLightStatusBars(lightPage);
+        bars.setAppearanceLightNavigationBars(lightPage);
     }
 
     // NEO's philosophy: nothing on screen but the page. Android's status and
@@ -63,6 +104,14 @@ public class MainActivity extends BridgeActivity {
         getOnBackPressedDispatcher().addCallback(this, callback);
     }
 
+    // Samsung brings the bars back after a dialog, the share sheet or the
+    // keyboard; hide them again whenever NEO has the window back
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) giveNeoTheWholeScreen();
+    }
+
     @Override
     public void onResume() {
         super.onResume();
@@ -73,6 +122,23 @@ public class MainActivity extends BridgeActivity {
             askedForFilesAccess = false;
             getBridge().getWebView().reload();
         }
+    }
+
+    // Is a physical keyboard attached (Bluetooth, USB, a keyboard case)? The
+    // page keeps Android's on-screen keyboard down while one is, and lets it
+    // up when there isn't one, so a writer typing on the glass can type.
+    static boolean hardwareKeyboard(Configuration c) {
+        return c.keyboard != Configuration.KEYBOARD_NOKEYS
+            && c.hardKeyboardHidden == Configuration.HARDKEYBOARDHIDDEN_NO;
+    }
+
+    // A keyboard connected or disconnected: tell the page
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        if (getBridge() == null) return;
+        getBridge().getWebView().evaluateJavascript(
+            "window.pocketHardwareKeyboard && window.pocketHardwareKeyboard(" + hardwareKeyboard(newConfig) + ")", null);
     }
 
     private boolean hasFilesAccess() {

@@ -12,6 +12,16 @@
   --red: #c0392b;
   --body-font: Georgia, "Times New Roman", serif;
   --dropcap-font: "Didot", "Bodoni 72", Georgia, serif;
+  /* the page: a book page's width, which in a window wide enough to leave
+     room on both sides grows a little (never past a comfortable line) */
+  --page-wf: 1;      /* Format → Page Width: Regular 1, Wide, Wider (app.js) */
+  --page-pad-x: 72px; /* the page's side margins at that width */
+  --page-w: calc(clamp(680px, 44vw, 760px) * var(--page-wf));
+  /* the room the scrollbar and the page's own shadow need beside it */
+  --page-gutter: 80px;
+  /* how wide everything laid out as the manuscript is: one page, or, in the
+     Pages view with two pages side by side, a spread (see "Pages view") */
+  --sheet-w: var(--page-w);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -129,6 +139,21 @@ button { font: inherit; cursor: pointer; }
 @font-face { font-family: 'NEO Josefin'; src: url('fonts/josefin-sans-latin-700-normal.woff2') format('woff2'); font-weight: 700; }
 @font-face { font-family: 'NEO Josefin'; src: url('fonts/josefin-sans-latin-600-normal.woff2') format('woff2'); font-weight: 600; }
 @font-face { font-family: 'NEO Baskerville'; src: url('fonts/libre-baskerville-latin-700-normal.woff2') format('woff2'); font-weight: 700; }
+/* Hungarian ő and ű (and the rest of Latin Extended-A) for the cover and
+   drop-cap faces, from Fontsource's "latin-ext" subset. The Latin files
+   above keep drawing everything else. */
+@font-face { font-family: 'NEO Anton'; src: url('fonts/anton-latin-ext-400-normal.woff2') format('woff2'); font-weight: 400; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'NEO Bebas'; src: url('fonts/bebas-neue-latin-ext-400-normal.woff2') format('woff2'); font-weight: 400; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'NEO Oswald'; src: url('fonts/oswald-latin-ext-700-normal.woff2') format('woff2'); font-weight: 700; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'NEO Abril'; src: url('fonts/abril-fatface-latin-ext-400-normal.woff2') format('woff2'); font-weight: 400; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'NEO Playfair'; src: url('fonts/playfair-display-latin-ext-900-normal.woff2') format('woff2'); font-weight: 900; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'NEO Playfair'; src: url('fonts/playfair-display-latin-ext-900-italic.woff2') format('woff2'); font-weight: 900; font-style: italic; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'NEO Playfair'; src: url('fonts/playfair-display-latin-ext-700-normal.woff2') format('woff2'); font-weight: 700; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'NEO Playfair'; src: url('fonts/playfair-display-latin-ext-400-italic.woff2') format('woff2'); font-weight: 400; font-style: italic; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'NEO Cinzel'; src: url('fonts/cinzel-latin-ext-900-normal.woff2') format('woff2'); font-weight: 900; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'NEO Josefin'; src: url('fonts/josefin-sans-latin-ext-700-normal.woff2') format('woff2'); font-weight: 700; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'NEO Josefin'; src: url('fonts/josefin-sans-latin-ext-600-normal.woff2') format('woff2'); font-weight: 600; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'NEO Baskerville'; src: url('fonts/libre-baskerville-latin-ext-700-normal.woff2') format('woff2'); font-weight: 700; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
 
 /* Body faces for Linux. macOS and Windows use system fonts; these are the
    names the Format menu and the first-run picker show on Linux. */
@@ -155,10 +180,112 @@ button { font: inherit; cursor: pointer; }
 @font-face { font-family: 'Libre Bodoni'; src: url('fonts/libre-bodoni-latin-400-italic.otf') format('opentype'); font-weight: 400; font-style: italic; }
 @font-face { font-family: 'Libre Bodoni'; src: url('fonts/libre-bodoni-latin-700-normal.otf') format('opentype'); font-weight: 700; }
 @font-face { font-family: 'TeX Gyre Chorus'; src: url('fonts/texgyrechorus-latin-400-normal.otf') format('opentype'); font-weight: 400; }
+/* iA Writer Quattro (iA's own webfonts, unmodified: the license reserves the
+   name "iA Writer" for the originals) */
+@font-face { font-family: 'iA Writer Quattro'; src: url('fonts/iAWriterQuattroS-Regular.woff2') format('woff2'); font-weight: 400; }
+@font-face { font-family: 'iA Writer Quattro'; src: url('fonts/iAWriterQuattroS-Italic.woff2') format('woff2'); font-weight: 400; font-style: italic; }
+@font-face { font-family: 'iA Writer Quattro'; src: url('fonts/iAWriterQuattroS-Bold.woff2') format('woff2'); font-weight: 700; }
+@font-face { font-family: 'iA Writer Quattro'; src: url('fonts/iAWriterQuattroS-BoldItalic.woff2') format('woff2'); font-weight: 700; font-style: italic; }
 @font-face { font-family: 'Jost'; src: url('fonts/jost-latin-400-normal.ttf') format('truetype'); font-weight: 400; }
 @font-face { font-family: 'Jost'; src: url('fonts/jost-latin-400-italic.ttf') format('truetype'); font-weight: 400; font-style: italic; }
 @font-face { font-family: 'Jost'; src: url('fonts/jost-latin-700-normal.ttf') format('truetype'); font-weight: 700; }
 @font-face { font-family: 'Jost'; src: url('fonts/jost-latin-700-italic.ttf') format('truetype'); font-weight: 700; font-style: italic; }
+
+/* Russian letters. Most faces above have none, so each such family gets a
+   face of Cyrillic only, under its own name: Oswald and Playfair from their
+   own families, the rest from a Cyrillic face chosen by a Russian reader.
+   Each is scaled (size-adjust) to stand as tall as the Latin letters beside
+   it, and takes the Latin face's line metrics (the overrides) so Russian
+   sits in the line exactly where Latin would. Declared after the Latin
+   faces, so they are the ones tried first for Cyrillic. The range is
+   Fontsource's "cyrillic" subset. Alegreya, Source Serif Pro and Jost have
+   Russian letters of their own. */
+@font-face { font-family: 'NEO Oswald'; src: url('fonts/oswald-cyrillic-700-normal.woff2') format('woff2'); font-weight: 700; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'NEO Playfair'; src: url('fonts/playfair-display-cyrillic-900-normal.woff2') format('woff2'); font-weight: 900; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'NEO Playfair'; src: url('fonts/playfair-display-cyrillic-900-italic.woff2') format('woff2'); font-weight: 900; font-style: italic; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+/* Linux body faces: Gelasio → Merriweather, TeX Gyre Pagella → Lora,
+   Libre Baskerville → Old Standard TT */
+@font-face { font-family: 'Gelasio'; src: url('fonts/merriweather-cyrillic-400-normal.woff2') format('woff2'); font-weight: 400; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; size-adjust: 87.4%; ascent-override: 106.2%; descent-override: 39.1%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Gelasio'; src: url('fonts/merriweather-cyrillic-400-italic.woff2') format('woff2'); font-weight: 400; font-style: italic; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; size-adjust: 86.5%; ascent-override: 107.2%; descent-override: 39.5%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Gelasio'; src: url('fonts/merriweather-cyrillic-700-normal.woff2') format('woff2'); font-weight: 700; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; size-adjust: 87.4%; ascent-override: 106.2%; descent-override: 39.1%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Gelasio'; src: url('fonts/merriweather-cyrillic-700-italic.woff2') format('woff2'); font-weight: 700; font-style: italic; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; size-adjust: 86.4%; ascent-override: 107.4%; descent-override: 39.6%; line-gap-override: 0.0%; }
+@font-face { font-family: 'TeX Gyre Pagella'; src: url('fonts/lora-cyrillic-400-normal.woff2') format('woff2'); font-weight: 400; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; size-adjust: 93.8%; ascent-override: 77.4%; descent-override: 30.0%; line-gap-override: 0.0%; }
+@font-face { font-family: 'TeX Gyre Pagella'; src: url('fonts/lora-cyrillic-400-italic.woff2') format('woff2'); font-weight: 400; font-style: italic; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; size-adjust: 94.3%; ascent-override: 77.7%; descent-override: 29.3%; line-gap-override: 0.0%; }
+@font-face { font-family: 'TeX Gyre Pagella'; src: url('fonts/lora-cyrillic-700-normal.woff2') format('woff2'); font-weight: 700; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; size-adjust: 94.2%; ascent-override: 76.4%; descent-override: 27.4%; line-gap-override: 0.0%; }
+@font-face { font-family: 'TeX Gyre Pagella'; src: url('fonts/lora-cyrillic-700-italic.woff2') format('woff2'); font-weight: 700; font-style: italic; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; size-adjust: 91.8%; ascent-override: 79.1%; descent-override: 29.5%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Libre Baskerville'; src: url('fonts/old-standard-tt-cyrillic-400-normal.woff2') format('woff2'); font-weight: 400; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; size-adjust: 116.2%; ascent-override: 83.5%; descent-override: 23.2%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Libre Baskerville'; src: url('fonts/old-standard-tt-cyrillic-400-italic.woff2') format('woff2'); font-weight: 400; font-style: italic; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; size-adjust: 118.4%; ascent-override: 81.9%; descent-override: 22.8%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Libre Baskerville'; src: url('fonts/old-standard-tt-cyrillic-700-normal.woff2') format('woff2'); font-weight: 700; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; size-adjust: 111.8%; ascent-override: 86.8%; descent-override: 24.1%; line-gap-override: 0.0%; }
+/* drop caps: Libre Bodoni → Prata, TeX Gyre Chorus → Marck Script */
+@font-face { font-family: 'Libre Bodoni'; src: url('fonts/prata-cyrillic-400-normal.woff2') format('woff2'); font-weight: 400; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; size-adjust: 94.2%; ascent-override: 98.0%; descent-override: 34.6%; line-gap-override: 0.0%; }
+@font-face { font-family: 'TeX Gyre Chorus'; src: url('fonts/marck-script-cyrillic-400-normal.woff2') format('woff2'); font-weight: 400; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; size-adjust: 106.4%; ascent-override: 96.5%; descent-override: 27.1%; line-gap-override: 0.0%; }
+/* cover titles: Anton → Russo One, Bebas Neue → Oswald Medium, Abril Fatface →
+   Playfair Display Black, Cinzel → Forum */
+@font-face { font-family: 'NEO Anton'; src: url('fonts/russo-one-cyrillic-400-normal.woff2') format('woff2'); font-weight: 400; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; size-adjust: 122.8%; ascent-override: 95.8%; descent-override: 26.8%; line-gap-override: 0.0%; }
+@font-face { font-family: 'NEO Bebas'; src: url('fonts/oswald-cyrillic-500-normal.woff2') format('woff2'); font-weight: 400; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; size-adjust: 86.4%; ascent-override: 104.1%; descent-override: 34.7%; line-gap-override: 0.0%; }
+@font-face { font-family: 'NEO Abril'; src: url('fonts/playfair-display-cyrillic-900-normal.woff2') format('woff2'); font-weight: 400; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; size-adjust: 91.7%; ascent-override: 115.4%; descent-override: 31.7%; line-gap-override: 0.0%; }
+@font-face { font-family: 'NEO Cinzel'; src: url('fonts/forum-cyrillic-400-normal.woff2') format('woff2'); font-weight: 900; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; size-adjust: 106.1%; ascent-override: 92.0%; descent-override: 35.1%; line-gap-override: 0.0%; }
+/* Josefin Sans (the band cover, every author line) → Jost */
+@font-face { font-family: 'NEO Josefin'; src: url('fonts/jost-latin-700-normal.ttf') format('truetype'); font-weight: 700; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; size-adjust: 105.1%; ascent-override: 71.3%; descent-override: 23.8%; line-gap-override: 0.0%; }
+@font-face { font-family: 'NEO Josefin'; src: url('fonts/jost-latin-700-normal.ttf') format('truetype'); font-weight: 600; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; size-adjust: 104.0%; ascent-override: 72.1%; descent-override: 24.0%; line-gap-override: 0.0%; }
+
+/* Korean letters. No face above has Hangul, so each family gets a Hangul
+   companion under its own name, the way the Russian faces do: Noto Serif KR
+   for the serif faces, the drop caps and Courier Prime, Noto Sans KR for
+   the sans faces. Both are variable, so one file serves every weight; the
+   black display faces declared at 400 (Abril, Anton, Bebas) take a 900
+   instance instead. Each is scaled so Noto's own Latin capitals would stand
+   as tall as this face's, keeping the proportion Noto's designers set
+   between Hangul and Latin, and takes the Latin face's line metrics. The
+   files hold the 11,172 syllables, the jamo and CJK punctuation; hanja come
+   from the system. Hangul has no italic: the italic faces are upright. */
+@font-face { font-family: 'NEO Anton'; src: url('fonts/noto-sans-kr-hangul-900-normal.woff2') format('woff2'); font-weight: 400; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 117.2%; ascent-override: 100.3%; descent-override: 28.1%; line-gap-override: 0.0%; }
+@font-face { font-family: 'NEO Bebas'; src: url('fonts/noto-sans-kr-hangul-900-normal.woff2') format('woff2'); font-weight: 400; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 95.5%; ascent-override: 94.2%; descent-override: 31.4%; line-gap-override: 0.0%; }
+@font-face { font-family: 'NEO Oswald'; src: url('fonts/noto-sans-kr-hangul-var.woff2') format('woff2'); font-weight: 700; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 110.5%; ascent-override: 108.0%; descent-override: 26.2%; line-gap-override: 0.0%; }
+@font-face { font-family: 'NEO Abril'; src: url('fonts/noto-serif-kr-hangul-900-normal.woff2') format('woff2'); font-weight: 400; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 96.0%; ascent-override: 110.2%; descent-override: 30.3%; line-gap-override: 0.0%; }
+@font-face { font-family: 'NEO Playfair'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 900; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 97.1%; ascent-override: 111.4%; descent-override: 25.8%; line-gap-override: 0.0%; }
+@font-face { font-family: 'NEO Playfair'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 900; font-style: italic; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 97.1%; ascent-override: 111.4%; descent-override: 25.8%; line-gap-override: 0.0%; }
+@font-face { font-family: 'NEO Playfair'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 700; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 97.1%; ascent-override: 111.4%; descent-override: 25.8%; line-gap-override: 0.0%; }
+@font-face { font-family: 'NEO Playfair'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 400; font-style: italic; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 97.1%; ascent-override: 111.4%; descent-override: 25.8%; line-gap-override: 0.0%; }
+@font-face { font-family: 'NEO Cinzel'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 900; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 96.0%; ascent-override: 101.6%; descent-override: 38.7%; line-gap-override: 0.0%; }
+@font-face { font-family: 'NEO Josefin'; src: url('fonts/noto-sans-kr-hangul-var.woff2') format('woff2'); font-weight: 700; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 95.8%; ascent-override: 78.3%; descent-override: 26.1%; line-gap-override: 0.0%; }
+@font-face { font-family: 'NEO Josefin'; src: url('fonts/noto-sans-kr-hangul-var.woff2') format('woff2'); font-weight: 600; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 95.8%; ascent-override: 78.3%; descent-override: 26.1%; line-gap-override: 0.0%; }
+@font-face { font-family: 'NEO Baskerville'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 700; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 105.6%; ascent-override: 91.8%; descent-override: 25.6%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Gelasio'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 400; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 95.0%; ascent-override: 97.6%; descent-override: 36.0%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Gelasio'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 400; font-style: italic; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 95.0%; ascent-override: 97.6%; descent-override: 36.0%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Gelasio'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 700; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 95.0%; ascent-override: 97.6%; descent-override: 36.0%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Gelasio'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 700; font-style: italic; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 95.0%; ascent-override: 97.6%; descent-override: 36.0%; line-gap-override: 0.0%; }
+@font-face { font-family: 'TeX Gyre Pagella'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 400; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 94.9%; ascent-override: 76.5%; descent-override: 29.6%; line-gap-override: 0.0%; }
+@font-face { font-family: 'TeX Gyre Pagella'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 400; font-style: italic; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 94.9%; ascent-override: 77.2%; descent-override: 29.1%; line-gap-override: 0.0%; }
+@font-face { font-family: 'TeX Gyre Pagella'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 700; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 93.4%; ascent-override: 77.1%; descent-override: 27.6%; line-gap-override: 0.0%; }
+@font-face { font-family: 'TeX Gyre Pagella'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 700; font-style: italic; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 93.4%; ascent-override: 77.7%; descent-override: 29.0%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Libre Baskerville'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 400; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 105.6%; ascent-override: 91.8%; descent-override: 25.6%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Libre Baskerville'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 400; font-style: italic; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 105.6%; ascent-override: 91.8%; descent-override: 25.6%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Libre Baskerville'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 700; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 105.6%; ascent-override: 91.8%; descent-override: 25.6%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Alegreya'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 400; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 87.4%; ascent-override: 116.3%; descent-override: 39.5%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Alegreya'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 400; font-style: italic; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 87.2%; ascent-override: 116.5%; descent-override: 39.5%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Alegreya'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 700; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 88.1%; ascent-override: 115.4%; descent-override: 39.2%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Alegreya'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 700; font-style: italic; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 87.9%; ascent-override: 115.5%; descent-override: 39.2%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Source Serif Pro'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 400; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 91.9%; ascent-override: 112.7%; descent-override: 36.4%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Source Serif Pro'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 400; font-style: italic; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 91.9%; ascent-override: 112.7%; descent-override: 36.4%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Source Serif Pro'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 700; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 91.9%; ascent-override: 112.7%; descent-override: 36.4%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Source Serif Pro'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 700; font-style: italic; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 91.9%; ascent-override: 112.7%; descent-override: 36.4%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Libre Bodoni'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 400; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 103.4%; ascent-override: 89.3%; descent-override: 31.5%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Libre Bodoni'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 400; font-style: italic; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 103.4%; ascent-override: 89.3%; descent-override: 31.5%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Libre Bodoni'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 700; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 103.4%; ascent-override: 89.3%; descent-override: 31.5%; line-gap-override: 0.0%; }
+@font-face { font-family: 'TeX Gyre Chorus'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 400; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 78.6%; ascent-override: 130.7%; descent-override: 36.6%; line-gap-override: 0.0%; }
+@font-face { font-family: 'iA Writer Quattro'; src: url('fonts/noto-sans-kr-hangul-var.woff2') format('woff2'); font-weight: 400; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 95.2%; ascent-override: 107.6%; descent-override: 28.9%; line-gap-override: 0.0%; }
+@font-face { font-family: 'iA Writer Quattro'; src: url('fonts/noto-sans-kr-hangul-var.woff2') format('woff2'); font-weight: 400; font-style: italic; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 95.2%; ascent-override: 107.6%; descent-override: 28.9%; line-gap-override: 0.0%; }
+@font-face { font-family: 'iA Writer Quattro'; src: url('fonts/noto-sans-kr-hangul-var.woff2') format('woff2'); font-weight: 700; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 95.2%; ascent-override: 107.6%; descent-override: 28.9%; line-gap-override: 0.0%; }
+@font-face { font-family: 'iA Writer Quattro'; src: url('fonts/noto-sans-kr-hangul-var.woff2') format('woff2'); font-weight: 700; font-style: italic; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 95.2%; ascent-override: 107.6%; descent-override: 28.9%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Jost'; src: url('fonts/noto-sans-kr-hangul-var.woff2') format('woff2'); font-weight: 400; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 95.5%; ascent-override: 112.0%; descent-override: 39.3%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Jost'; src: url('fonts/noto-sans-kr-hangul-var.woff2') format('woff2'); font-weight: 400; font-style: italic; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 95.5%; ascent-override: 112.0%; descent-override: 39.3%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Jost'; src: url('fonts/noto-sans-kr-hangul-var.woff2') format('woff2'); font-weight: 700; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 95.5%; ascent-override: 112.0%; descent-override: 39.3%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Jost'; src: url('fonts/noto-sans-kr-hangul-var.woff2') format('woff2'); font-weight: 700; font-style: italic; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 95.5%; ascent-override: 112.0%; descent-override: 39.3%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Courier Prime'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 400; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 79.5%; ascent-override: 98.3%; descent-override: 43.0%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Courier Prime'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 400; font-style: italic; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 79.5%; ascent-override: 98.3%; descent-override: 43.0%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Courier Prime'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 700; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 79.5%; ascent-override: 98.3%; descent-override: 43.0%; line-gap-override: 0.0%; }
+@font-face { font-family: 'Courier Prime'; src: url('fonts/noto-serif-kr-hangul-var.woff2') format('woff2'); font-weight: 700; font-style: italic; unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF; size-adjust: 79.5%; ascent-override: 98.3%; descent-override: 43.0%; line-gap-override: 0.0%; }
 
 .book .b-text {
   position: absolute; left: 8px; right: 8px; z-index: 2;
@@ -302,12 +429,140 @@ button { font: inherit; cursor: pointer; }
 
 .book.dragging { opacity: 0.4; }
 
+/* ---------------- A bound shelf: one book ----------------
+   Its tiles sit close, stitched along the shelf by a gold thread. The cover
+   stands a little taller; the pages a book carries stand beside it as thin
+   leaves of paper. Hovering the shelf shows, faintly, each page it could
+   still have and a seam before each title where a part could begin. */
+.shelf.bound .shelf-books { gap: 6px; position: relative; }
+.shelf.bound .shelf-books::after {
+  content: ''; position: absolute; left: 0; width: var(--stitch, 100%); bottom: 3px; height: 2px;
+  background: repeating-linear-gradient(90deg, var(--accent) 0 7px, transparent 7px 12px);
+  opacity: 0.55; pointer-events: none;
+}
+.shelf-bound-mark {
+  display: inline-block; margin-left: 10px; font-size: 11px; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--accent); opacity: 0.8; user-select: none;
+}
+.shelf-bound-mark::before { content: '· '; }
+.book.bound-cover {
+  zoom: 1.12;
+  box-shadow: inset 4px 0 8px -3px rgba(0,0,0,0.5), 3px 6px 16px rgba(0,0,0,0.6);
+}
+.book.page-tile, .ghost-page {
+  width: 34px; height: 150px; flex-shrink: 0; padding: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+}
+.book.page-tile {
+  background: #efe9dc; border-radius: 2px 3px 3px 2px;
+  box-shadow: 1px 2px 6px rgba(0,0,0,0.4); color: #6f675b;
+}
+.book.page-tile.kind-part { background: #e6dfcf; }
+.page-tile .pt-label, .ghost-page .pt-label {
+  writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap;
+  font-size: 9.5px; letter-spacing: 2.4px; text-transform: uppercase;
+}
+.ghost-page {
+  background: transparent; border: 1px dashed rgba(255,255,255,0.26); border-radius: 3px;
+  color: rgba(255,255,255,0.45); opacity: 0; transition: opacity 0.25s ease, color 0.15s, border-color 0.15s;
+}
+.ghost-page .gp-plus { font-size: 15px; line-height: 1; }
+.long .pt-label { font-size: 9px; letter-spacing: 1.4px; }
+.longer .pt-label { font-size: 8px; letter-spacing: 0.6px; }
+.ghost-page.longer { gap: 8px; }
+.page-tile .pt-label, .ghost-page .pt-label { max-height: 128px; overflow: hidden; text-overflow: ellipsis; }
+.ghost-page .pt-label { max-height: 112px; }
+.part-seam {
+  width: 18px; height: 150px; flex-shrink: 0; margin: 0 -2px; padding: 0;
+  position: relative; background: none; border: none; color: rgba(255,255,255,0.6);
+  opacity: 0; transition: opacity 0.25s ease, color 0.15s;
+}
+.part-seam .ps-line { position: absolute; left: 8px; top: 24px; bottom: 0; border-left: 1px dashed rgba(255,255,255,0.3); }
+.part-seam .ps-plus {
+  position: absolute; left: 0; top: 0; width: 18px; height: 18px; border-radius: 9px;
+  border: 1px solid rgba(255,255,255,0.35); font-size: 12px; line-height: 16px; text-align: center;
+}
+.shelf.bound:hover .ghost-page, .shelf.bound:hover .part-seam,
+.ghost-page:focus-visible, .part-seam:focus-visible { opacity: 1; }
+.ghost-page:hover { color: var(--accent); border-color: var(--accent); }
+.part-seam:hover { color: var(--accent); }
+.part-seam:hover .ps-plus { border-color: var(--accent); }
+.part-seam:hover .ps-line { border-left-color: var(--accent); }
+/* the moment of binding: the tiles settle in and the thread runs along the shelf */
+.shelf.just-bound .shelf-books > * { animation: neo-settle 0.45s ease backwards; animation-delay: calc(var(--i, 0) * 45ms); }
+.shelf.just-bound .shelf-books::after { animation: neo-stitch 1.1s ease 0.25s backwards; }
+@keyframes neo-settle { from { opacity: 0; transform: translateY(10px); } }
+@keyframes neo-stitch { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+
+/* ---------------- A page, open as it will print ---------------- */
+.page-sheet-backdrop { background: rgba(12,12,12,0.66); bottom: var(--kb, 0px); } /* above Pocket's keyboard */
+.page-sheet { display: flex; flex-direction: column; gap: 10px; }
+.page-sheet .ps-bar { display: flex; align-items: center; justify-content: space-between; }
+.page-sheet .ps-name { font-size: 11px; letter-spacing: 2.4px; text-transform: uppercase; color: #9a958c; }
+.page-sheet .ps-done {
+  background: transparent; border: 1px solid #3a3a3a; border-radius: 5px;
+  color: #c9c3b8; font-size: 12px; padding: 5px 14px;
+}
+.page-sheet .ps-done:hover { border-color: var(--accent); color: var(--accent); }
+.ps-paper {
+  height: min(660px, calc(100vh - var(--kb, 0px) - 110px)); aspect-ratio: 470 / 660;
+  max-width: calc(100vw - 32px); overflow-y: auto;
+  background: var(--paper); color: var(--ink); border-radius: 3px;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.6); padding: 70px 62px 60px;
+  display: flex; flex-direction: column; font-family: var(--body-font);
+  font-size: 13px; line-height: 1.8;
+}
+.ps-paper .ps-label {
+  text-align: center; font-size: 11px; letter-spacing: 4px; text-transform: uppercase; opacity: 0.7;
+}
+.ps-paper .ps-body { outline: none; position: relative; caret-color: var(--accent); }
+.ps-paper .ps-body p { margin: 0; }
+.ps-paper .ps-body.empty::before {
+  content: attr(data-ph); position: absolute; left: 0; right: 0; top: 0;
+  color: #b9b4a8; font-style: italic; pointer-events: none;
+}
+.ps-paper .ps-body p[data-attr] { font-style: normal; font-size: 11px; letter-spacing: 1.5px; margin-top: 12px; }
+.ps-paper .ps-body i, .ps-paper .ps-body em { font-style: normal; }
+.ps-paper.kind-copyright { justify-content: flex-end; }
+.ps-paper.kind-copyright .ps-body { font-size: 10.5px; }
+/* p:not(:first-child), never p + p: these pages hold only paragraphs, so the
+   two pick the same ones, but a p + p rule anywhere in the sheet, beside the
+   ::highlight and ::selection rules, makes Chromium restyle every paragraph
+   of every chapter when one is added (7 ms in a 2,000-paragraph chapter) */
+.ps-paper.kind-copyright .ps-body p:not(:first-child) { margin-top: 0.9em; }
+.ps-paper.kind-copyright .ps-body i, .ps-paper.kind-copyright .ps-body em,
+.ps-paper.kind-acknowledgments .ps-body i, .ps-paper.kind-acknowledgments .ps-body em,
+.ps-paper.kind-about .ps-body i, .ps-paper.kind-about .ps-body em { font-style: italic; }
+.ps-paper.kind-dedication, .ps-paper.kind-epigraph, .ps-paper.kind-part { justify-content: center; text-align: center; }
+.ps-paper.kind-dedication .ps-body { font-style: italic; font-size: 17px; line-height: 1.7; padding-bottom: 120px; }
+.ps-paper.kind-epigraph .ps-body { font-style: italic; font-size: 15px; line-height: 1.75; padding-bottom: 110px; }
+.ps-paper.kind-part .ps-label { margin-bottom: 16px; }
+.ps-paper.kind-part .ps-body { padding-bottom: 90px; font-style: italic; font-size: 14px; line-height: 1.75; }
+.ps-paper.kind-part .ps-body p:first-child { font-style: normal; font-size: 24px; line-height: 1.3; margin-bottom: 22px; }
+.ps-paper.kind-part .ps-body.empty p:first-child { min-height: 1.3em; }
+.ps-paper.kind-acknowledgments, .ps-paper.kind-about { padding-top: 100px; }
+.ps-paper.kind-acknowledgments .ps-label, .ps-paper.kind-about .ps-label { margin-bottom: 34px; }
+.ps-paper.kind-acknowledgments .ps-body p:not(:first-child), .ps-paper.kind-about .ps-body p:not(:first-child) { text-indent: 1.5em; }
+/* the cover opens to the title page */
+.ps-paper.kind-title { justify-content: center; align-items: stretch; gap: 14px; padding-bottom: 150px; text-align: center; }
+.ps-paper .tp-field { outline: none; min-height: 1.2em; line-height: 1.3; }
+.ps-paper .tp-t { font-size: 30px; }
+.ps-paper .tp-s { font-size: 15px; font-style: italic; opacity: 0.8; }
+.ps-paper .tp-a { margin-top: 40px; font-size: 12px; letter-spacing: 3px; text-transform: uppercase; }
+.ps-paper .tp-field:empty::before { content: attr(data-ph); color: #b9b4a8; font-style: italic; letter-spacing: 0; text-transform: none; }
+body.night .ps-paper .ps-body.empty::before, body.night .ps-paper .tp-field:empty::before { color: #5f5b52; }
+@media (max-width: 560px) {
+  .ps-paper { padding: 44px 26px 36px; }
+  .ps-paper.kind-acknowledgments, .ps-paper.kind-about { padding-top: 60px; }
+}
+
 /* ====================== FIRST-RUN MODAL ====================== */
 
 .modal-backdrop {
   position: fixed; inset: 0; background: rgba(0,0,0,0.6);
   display: flex; align-items: center; justify-content: center; z-index: 900;
 }
+.modal-backdrop:focus { outline: none; } /* it holds the keys, it isn't one */
 .modal {
   background: var(--bg-soft); border: 1px solid #333; border-radius: 12px;
   padding: 34px 38px; width: 480px; max-height: 85vh; overflow-y: auto;
@@ -321,6 +576,32 @@ button { font: inherit; cursor: pointer; }
   color: #eee; font-size: 14px;
 }
 .modal input:focus { outline: none; border-color: var(--accent); }
+
+/* File → Export → Paperback for KDP… */
+.print-modal { max-height: calc(100vh - 48px); overflow-y: auto; }
+.print-modal .pm-review-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.print-modal .pm-review-row .pm-edit { font-size: 12px; padding: 2px 6px; opacity: 0; transition: opacity 0.15s; }
+.print-modal .pm-review-row:hover .pm-edit, .print-modal .pm-edit:focus-visible { opacity: 1; }
+.print-modal #pm-review-text { margin: 4px 0 10px; }
+.print-modal label.pm-also { display: block; margin-top: 6px; }
+.print-modal .pm-hint { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+.print-modal h3 { font-weight: 400; font-size: 14px; color: var(--accent); margin: 8px 0 12px; }
+.print-modal .pm-row { display: flex; gap: 14px; }
+.print-modal .pm-row > label { flex: 1; min-width: 0; }
+.print-modal .pm-trims { gap: 8px; margin-bottom: 16px; }
+.print-modal .pm-trims .fr-choice { flex: 1; padding: 10px 6px; text-align: center; }
+.print-modal .pm-trims .fr-choice strong { margin-bottom: 3px; font-size: 13px; }
+.print-modal .pm-trims .fr-choice span { font-size: 11px; }
+.print-modal .fr-choice.sel { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.print-modal .fr-choice:focus:not(:focus-visible) { outline: none; }
+.print-modal select, .print-modal textarea {
+  display: block; width: 100%; margin-top: 6px; padding: 8px 10px;
+  background: var(--bg); border: 1px solid #3a3a3a; border-radius: 6px; color: #eee; font: inherit; font-size: 14px;
+}
+.print-modal textarea { resize: vertical; }
+.print-modal label.pm-check { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.print-modal label.pm-check input { display: inline-block; width: auto; margin: 0; }
+body.light .print-modal select, body.light .print-modal textarea { background: #fff; border-color: #cfcac0; color: #1c1a17; }
 
 /* the two button voices every dialog speaks in */
 .btn-gold {
@@ -350,6 +631,7 @@ button { font: inherit; cursor: pointer; }
   background: var(--bg); border: 1px solid #3a3a3a; border-radius: 6px;
   padding: 8px 13px; color: #ddd; font-size: 14px;
 }
+#fr-error { color: #d97b6c; font-size: 12px; line-height: 1.5; margin: 14px 0 0; }
 .fr-font:hover { border-color: #666; }
 .fr-font.sel { border-color: var(--accent); color: var(--accent); }
 .fr-font .fr-cap { font-size: 20px; margin-right: 7px; }
@@ -370,6 +652,10 @@ button { font: inherit; cursor: pointer; }
 .fr-choice:hover { border-color: var(--accent); }
 .fr-choice strong { display: block; margin-bottom: 6px; color: var(--accent); }
 .fr-choice span { font-size: 12px; color: var(--muted); line-height: 1.4; }
+.fr-choice.danger { border-color: #6b3a34; }
+.fr-choice.danger strong { color: #d97b6c; }
+.about-version { color: #999; }
+.modal p.about-line { font-size: 13px; color: #777; }
 
 /* ========================= EDITOR ========================= */
 
@@ -406,21 +692,39 @@ body.night #aux-editor * { color: inherit; }
 #paper-scroll {
   position: absolute; top: 0; bottom: 40px;
   left: 50%; transform: translateX(-50%);
-  width: min(calc(760px * var(--page-zoom, 1)), 94%);
+  width: min(calc((var(--sheet-w) + var(--page-gutter)) * var(--page-zoom, 1)), 94%);
   overflow-y: auto;
 }
 
 /* Search highlights — no DOM mutation, no focus theft */
 ::highlight(neo-search) { background: rgba(201, 168, 106, 0.35); }
 ::highlight(neo-search-current) { background: #c9a86a; color: #1c1c1c; }
+/* the sentence Read Aloud is on (⌘⇧U) */
+::highlight(neo-speak) { background: rgba(201, 168, 106, 0.28); }
+/* Non-Breaking Marks (Format menu): the spaces and hyphens a wrap must not
+   break at — U+00A0, U+202F and U+2011 — in one unobtrusive light gray */
+::highlight(neo-nb-mark) { background: rgba(127, 127, 127, 0.25); }
+/* ...and a soft hyphen (U+00AD), zero wide mid-line, as a thin upright tick:
+   told from the gray box by its shape. Drawn in a layer of its own on the
+   sheet, outside the text (app.js, drawSoftHyphenTicks) */
+.shy-ticks {
+  position: absolute; inset: 0; z-index: 1;
+  pointer-events: none; user-select: none; -webkit-user-select: none;
+}
+.shy-ticks span {
+  position: absolute; width: 1.5px; margin-left: -0.75px; border-radius: 1px;
+  background: color-mix(in srgb, var(--ink) 45%, var(--paper));
+}
+body.focus-mode .shy-ticks { opacity: 0.6; }
 
 /* Each page of the book is its own sheet of paper */
 #paper {
-  width: calc(680px * var(--page-zoom, 1)); max-width: 92%;
+  width: calc(var(--sheet-w) * var(--page-zoom, 1)); max-width: 92%;
   margin: 40px auto 120px;
 }
-/* typewriter scrolling: room below the last line so it can sit mid-screen */
-body.typewriter #paper { margin-bottom: 60vh; }
+/* typewriter scrolling: room below the last line so it can sit mid-screen
+   (app.js works out how much the last page doesn't already give) */
+body.typewriter #paper { margin-bottom: var(--typewriter-room, 60vh); }
 /* focus mode: the manuscript fades back, the neo-focus highlight (set in
    app.js) repaints the current sentence / paragraph / scene at full ink */
 .chapter-body, .chapter-head { transition: color 0.25s ease; }
@@ -434,22 +738,63 @@ body.focus-mode .sheet ::selection { color: #1c1c1c; }
 body.focus-mode.night .sheet ::selection { color: #d6d2c6; }
 /* the drop cap sits outside the highlight's reach; same selector as the cap
    itself so no other paragraph grows a ::first-letter */
-body.focus-mode:not(.no-dropcap) .chapter-body.focus-cap:not(.cap-off) p:not(.poetry):not([data-fmt]):not(p:not(.poetry):not([data-fmt]) ~ p)::first-letter { color: var(--ink); }
+body.focus-mode:not(.no-dropcap) .chapter-body.focus-cap:not(.cap-off):not(.no-cap):not(.opens-dialogue) p[data-first]::first-letter { color: var(--ink); }
 .sheet {
   background: var(--paper); color: var(--ink);
-  padding: 70px 72px 90px;
+  padding: 70px var(--page-pad-x) 90px;
   box-shadow: 0 4px 30px rgba(0,0,0,0.5);
   min-height: 88vh;
   margin-bottom: 44px;
 }
 #aux-paper {
-  width: calc(680px * var(--page-zoom, 1)); max-width: 92%;
+  width: calc(var(--page-w) * var(--page-zoom, 1)); max-width: 92%;
   background: var(--paper); color: var(--ink);
   margin: 40px auto 120px;
-  padding: 70px 72px 90px;
+  padding: 70px var(--page-pad-x) 90px;
   box-shadow: 0 4px 30px rgba(0,0,0,0.5);
   min-height: 85vh;
 }
+
+/* --- Pages view (Format → Show Pages) ---
+   The chapters are shown as separate pages the shape of a sheet of paper,
+   with the gap between them a word processor draws. Nothing is added to the
+   text: #chapters becomes a stack of columns one page high (column-height,
+   column-wrap), the chapters' sheets flow through them, and
+   box-decoration-break: clone gives each piece of a sheet its own paper,
+   margins and shadow. Every chapter starts on a fresh page. app.js sets
+   --pg-n, the pages a chapter runs to, so that its last page is a whole page
+   too; Two Pages Side by Side (body.pages-two, set when two fit the window)
+   makes the stack two columns wide. A script has pages of its own. */
+body.paged {
+  --pg-ratio: 1.4142; /* page height / width: A4. US Letter is 1.2941 */
+  --pg-gap-base: 28px;
+  --pg-w: calc(var(--page-w) * var(--page-zoom, 1));
+  --pg-h: round(calc(var(--pg-w) * var(--pg-ratio)), 1px); /* whole pixels, so a chapter's pages add up exactly */
+  --pg-m: calc(var(--pg-w) * 0.12); /* the margins, about an inch */
+  --pg-gap: calc(var(--pg-gap-base) * var(--page-zoom, 1));
+}
+body.paged.pages-two { --sheet-w: calc(var(--page-w) * 2 + var(--pg-gap-base)); }
+/* a page keeps its shape: zoomed past the window it scrolls sideways */
+body.paged #paper:not(.script) { max-width: none; position: relative; }
+body.paged #paper:not(.script) #chapters {
+  column-count: 1; column-height: var(--pg-h); column-wrap: wrap; column-fill: auto;
+  column-gap: var(--pg-gap); row-gap: var(--pg-gap);
+}
+body.paged.pages-two #paper:not(.script) #chapters { column-count: 2; }
+body.paged #paper:not(.script) .chapter.sheet {
+  box-decoration-break: clone; -webkit-box-decoration-break: clone;
+  break-before: column;
+  padding: var(--pg-m);
+  margin: 0;
+  min-height: calc(var(--pg-n, 1) * var(--pg-h) - 0.5px); /* (half a pixel under, or rounding adds a page) */
+}
+body.paged #paper:not(.script) #title-page {
+  width: var(--pg-w); height: var(--pg-h); min-height: 0;
+  margin: 0 auto var(--pg-gap); padding: var(--pg-m);
+}
+/* a page zoomed out is the whole page smaller, the title page's lines too */
+body.paged #paper:not(.script) #tp-subtitle { font-size: calc(17px * var(--page-zoom, 1)); margin-top: calc(14px * var(--page-zoom, 1)); min-height: 0; }
+body.paged #paper:not(.script) #tp-author { font-size: calc(14px * var(--page-zoom, 1)); margin-top: calc(46px * var(--page-zoom, 1)); letter-spacing: calc(3px * var(--page-zoom, 1)); }
 
 /* --- Title page: a sheet of its own --- */
 #title-page {
@@ -492,6 +837,10 @@ body.focus-mode:not(.no-dropcap) .chapter-body.focus-cap:not(.cap-off) p:not(.po
   transition: opacity 0.15s;
 }
 .chapter-head:hover .ch-title:empty::before { opacity: 1; }
+/* an unnumbered chapter goes by its title alone: no number, no dash, and
+   the "add a title" prompt stays in view until it has one */
+.chapter-head.no-number .ch-num, .chapter-head.no-number .ch-sep { display: none; }
+.chapter-head.no-number .ch-title:empty::before { opacity: 1; }
 .chapter-body {
   font-family: var(--body-font);
   font-size: calc(var(--editor-size, 17px) * var(--page-zoom, 1)); line-height: 1.75;
@@ -503,23 +852,24 @@ body.focus-mode:not(.no-dropcap) .chapter-body.focus-cap:not(.cap-off) p:not(.po
    pass (the source of duplicated characters on delete) never runs */
 .chapter-body p { text-indent: 2em; margin: 0; white-space: pre-wrap; }
 #aux-editor p { white-space: pre-wrap; }
-/* the chapter's opening paragraph: the first one that isn't poetry or styled */
-.chapter-body p:not(.poetry):not([data-fmt]):not(p:not(.poetry):not([data-fmt]) ~ p) { text-indent: 0; }
+/* the chapter's opening paragraph: the first with words that isn't poetry
+   (marked data-first in app.js) */
+.chapter-body p[data-first] { text-indent: 0; }
 /* Poetry paragraphs (⇧Enter): a quote, a stanza, a POV name, a dateline —
    pulled in from both margins, italic, no first-line indent, never a drop
    cap. Consecutive lines make one block; the block breathes above and below.
    The italic is real markup, laid in when the paragraph is made, so ⌘I
    takes it off any word the writer wants roman. */
 .chapter-body p.poetry { margin: 0 2.5em; text-indent: 0; }
+/* Flush paragraphs (⇧Enter): prose with no first-line indent — a report,
+   a list, an email inside the story */
+.chapter-body p.flush { text-indent: 0 !important; }
+/* a poetry paragraph is one italic; emphasis inside it stands upright, as
+   typesetters set it (and as every export does, see paraRuns in app.js) */
+.chapter-body i i { font-style: normal; }
+.chapter-body i i i { font-style: italic; }
 .chapter-body p:not(.poetry) + p.poetry { margin-top: 0.9em; }
 .chapter-body p.poetry + p:not(.poetry) { margin-top: 0.9em; }
-/* cap-off while the caret is in the first paragraph: the rule must stop
-   MATCHING entirely — a matching first-letter rule, even styled to nothing,
-   makes the engine split the text internally, which corrupts deletes */
-body:not(.no-dropcap) .chapter-body:not(.cap-off) p:not(.poetry):not([data-fmt]):not(p:not(.poetry):not([data-fmt]) ~ p)::first-letter {
-  font-size: 3.4em; float: left; line-height: 0.8;
-  padding: 4px 8px 0 0; font-family: var(--dropcap-font);
-}
 /* Paragraph styles (Format menu, or Markdown habits: "# ", "## ", "> ",
    "- ", "1. "). Each is an ordinary paragraph carrying data-fmt; none
    takes a first-line indent or a drop cap. */
@@ -545,7 +895,13 @@ body:not(.no-dropcap) .chapter-body:not(.cap-off) p:not(.poetry):not([data-fmt])
 .chapter-body p[data-fmt="quote"] + p:not([data-fmt="quote"]),
 .chapter-body p:is([data-fmt="ul"], [data-fmt="ol"]) + p:not([data-fmt="ul"]):not([data-fmt="ol"]) { margin-top: 0.9em; }
 .chapter-body p[data-fmt="quote"] + p:not([data-fmt]), .chapter-body p:is([data-fmt="ul"], [data-fmt="ol"]) + p:not([data-fmt]) { text-indent: 0; }
-
+/* cap-off while the caret is in the first paragraph: the rule must stop
+   MATCHING entirely — a matching first-letter rule, even styled to nothing,
+   makes the engine split the text internally, which corrupts deletes */
+body:not(.no-dropcap) .chapter-body:not(.cap-off):not(.no-cap):not(.opens-dialogue) p[data-first]::first-letter {
+  font-size: 3.4em; float: left; line-height: 0.8;
+  padding: 4px 8px 0 0; font-family: var(--dropcap-font);
+}
 /* NEO's spellcheck pass: flagged words, painted like search matches */
 ::highlight(neo-spell) {
   text-decoration: underline wavy #cf5c56;
@@ -563,19 +919,26 @@ body:not(.no-dropcap) .chapter-body:not(.cap-off) p:not(.poetry):not([data-fmt])
   padding: 6px 10px; border-radius: 5px; font-size: 14px; cursor: pointer;
   font-family: Georgia, serif;
 }
-.spell-menu button:hover:not(:disabled) { background: #333; }
+.spell-menu button:hover:not(:disabled), .spell-menu button:focus-visible { background: #333; outline: none; }
 .spell-menu button:disabled { color: #777; font-style: italic; }
 .spell-menu .sm-sep { height: 1px; background: #3a3a3a; margin: 4px 0; }
 body.bright .spell-menu { border-color: #4a4a4a; }
 body.bright .spell-menu button { color: #eee; }
 
 /* Section breaks: Enter twice for ***, three times for a new chapter */
+/* (always centered: an alignment a break picked up from the paragraph it
+   was made in, justified most of all, would set it flush left) */
 .chapter-body p.scene-break {
-  text-align: center; text-indent: 0 !important;
+  text-align: center !important; text-indent: 0 !important;
   letter-spacing: 8px; color: #888;
   margin: 1.6em 0; user-select: none;
 }
 .chapter-body p.scene-break + p { text-indent: 0; }
+/* …except a line of dialogue, there and at a story's opening: it keeps its
+   indent, in line with the speech that follows (marked in app.js). Pages
+   that aren't stories (no-cap) set their lines their own way. */
+.chapter-body.opens-dialogue:not(.no-cap) p[data-first]:not([style*="text-align"]),
+.chapter-body:not(.no-cap) p.scene-break + p[data-speech]:not([style*="text-align"]) { text-indent: 2em; }
 /* centered/right paragraphs drop the first-line indent; justified keep it */
 .chapter-body p[style*="text-align"]:not([style*="justify"]) { text-indent: 0; }
 /* Invisible anchors marking where a darling was cut from */
@@ -588,6 +951,50 @@ body.bright .spell-menu button { color: #eee; }
   padding: 0 3px; border-radius: 2px; cursor: pointer;
 }
 
+/* --- The pages a book carries, in the manuscript, set as they'll print --- */
+.chapter.bookpage { display: flex; flex-direction: column; }
+.chapter.bookpage .chapter-body { position: relative; }
+.chapter.bookpage .chapter-body p { text-indent: 0; }
+/* a page that isn't headed in print wears its name faintly, for the writer */
+.chapter.kind-copyright .chapter-head, .chapter.kind-dedication .chapter-head, .chapter.kind-epigraph .chapter-head {
+  font-size: calc(11px * var(--page-zoom, 1)); letter-spacing: 3px; color: #c4beb0; margin-bottom: 0;
+}
+.chapter-body.blank::before {
+  content: attr(data-ph); position: absolute; left: 0; right: 0; top: 0;
+  color: #b9b4a8; font-style: italic; pointer-events: none;
+}
+.chapter-body p[data-attr] { font-style: normal; font-size: 0.72em; letter-spacing: 1.5px; margin-top: 0.9em; }
+.chapter.kind-copyright .chapter-body {
+  margin-top: auto; font-size: calc(var(--editor-size, 17px) * 0.66 * var(--page-zoom, 1)); line-height: 1.6;
+}
+.chapter.kind-copyright .chapter-body p:not(:first-child) { margin-top: 0.9em; }
+.chapter.kind-dedication .chapter-body, .chapter.kind-epigraph .chapter-body {
+  margin: auto 0; padding-bottom: 14vh; text-align: center; font-style: italic;
+}
+.chapter.kind-epigraph .chapter-body { margin: auto 3em; font-size: calc(var(--editor-size, 17px) * 0.92 * var(--page-zoom, 1)); }
+.chapter.kind-dedication .chapter-body i, .chapter.kind-epigraph .chapter-body i,
+.chapter.kind-part .chapter-body p:not(:first-child) i { font-style: normal; }
+.chapter.kind-part .chapter-head { margin: auto 0 22px; }
+.chapter.kind-part .chapter-body { margin-bottom: auto; padding-bottom: 12vh; text-align: center; font-style: italic; }
+.chapter.kind-part .chapter-body p { margin: 0 2em; }
+.chapter.kind-part .chapter-body p:first-child { font-style: normal; font-size: 1.55em; line-height: 1.3; margin: 0 0 0.9em; }
+.chapter.kind-part .chapter-body.blank::before { font-size: 1.55em; line-height: 1.3; }
+.chapter.kind-acknowledgments .chapter-body p:not(:first-child), .chapter.kind-about .chapter-body p:not(:first-child) { text-indent: 2em; }
+/* the contents: the book's own shape, each line a way there */
+.toc-list {
+  list-style: none; margin: 0 1.5em; padding: 0;
+  font-family: var(--body-font); font-size: calc(var(--editor-size, 17px) * 0.94 * var(--page-zoom, 1)); line-height: 1.8;
+}
+.toc-list li { cursor: pointer; }
+.toc-list li:hover { color: var(--accent); }
+.toc-list li.lv1 { margin-left: 1.6em; }
+.toc-list li.t-part { margin-top: 0.9em; letter-spacing: 2px; font-variant-caps: all-small-caps; font-size: 1.1em; }
+.toc-list li.t-part:first-child { margin-top: 0; }
+.toc-list li:not(.t-page) + li.t-page { margin-top: 1.1em; }
+body.night .chapter.kind-copyright .chapter-head, body.night .chapter.kind-dedication .chapter-head,
+body.night .chapter.kind-epigraph .chapter-head { color: #5f5b52; }
+body.night .chapter-body.blank::before { color: #5f5b52; }
+
 /* --- Aux paper (Notes / Outline / Darlings) --- */
 #aux-paper h2 {
   font-family: var(--body-font); font-weight: 400; letter-spacing: 3px;
@@ -599,6 +1006,9 @@ body.bright .spell-menu button { color: #eee; }
   min-height: 50vh;
 }
 #aux-editor:empty::before { content: var(--ph-write-freely, 'Write freely…'); color: #b9b4a8; font-style: italic; }
+/* vim keys: while moving, the caret becomes a gold block, as in vim, so a
+   writer can see at a glance whether a letter will move or type */
+body.vim-nav .chapter-body, body.vim-nav #aux-editor { caret-color: var(--accent); caret-shape: block; }
 
 /* --- Structured outline tab --- */
 .ol-line {
@@ -620,10 +1030,220 @@ body.bright .spell-menu button { color: #eee; }
 .ol-text:empty::before { color: #b9b4a8; font-style: italic; }
 .ol-chapter .ol-text:empty::before { content: var(--ph-ol-chapter, 'What happens in this chapter…'); }
 .ol-section .ol-text:empty::before { content: var(--ph-ol-section, 'What happens in this section…'); }
+.ol-part { margin-top: 26px; }
+.ol-part .ol-num { font-weight: 700; color: #6b6455; }
+.ol-part-name {
+  flex: 1; font-family: var(--body-font); letter-spacing: 3px; text-transform: uppercase;
+  font-size: 0.82em; color: #6b6455; line-height: 1.5;
+}
+body.night .ol-part .ol-num, body.night .ol-part-name { color: #918b7d; }
 .ol-hint {
   margin-top: 40px; color: #b9b4a8; font-size: 12.5px; font-style: italic;
   line-height: 1.7; text-align: center;
 }
+
+/* --- Outline cards: the outline set like a page (app.js, OUTLINE CARDS) --- */
+#outline-views { display: flex; justify-content: center; gap: 2px; margin: -30px 0 24px; opacity: 0; transition: opacity 0.15s; }
+#aux-paper:hover #outline-views, #outline-views:focus-within { opacity: 1; }
+@media (hover: none) { #outline-views { opacity: 1; } }
+#outline-views button {
+  background: none; border: none; border-bottom: 2px solid transparent; padding: 4px 10px;
+  font: 12px/1.4 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; letter-spacing: 1px;
+  color: var(--muted); cursor: pointer;
+}
+#outline-views button.on { color: var(--ink); border-bottom-color: var(--accent); }
+#editor-view.board-on #outline-views button.on { color: color-mix(in srgb, var(--accent) 35%, #e8e4da); }
+body.light #editor-view.board-on #outline-views button.on { color: #2b2926; }
+
+/* the board takes the whole window, in the room rather than on a page */
+#editor-view.board-on #paper-scroll { left: 0; right: 0; width: auto; transform: none; }
+#editor-view.board-on.nav-pinned #paper-scroll { left: 248px; }
+#editor-view.board-on.side-pinned #paper-scroll { right: 250px; }
+#editor-view.board-on #aux-paper {
+  width: auto; max-width: none; background: none; box-shadow: none; border: none;
+  margin: 0; padding: 30px clamp(18px, 3vw, 44px) 90px; min-height: 0; color: var(--muted);
+}
+#editor-view.board-on #aux-paper h2 { color: var(--muted); }
+
+#outline-board {
+  --cz: 1;
+  --mat: color-mix(in srgb, var(--accent) 10%, transparent);
+  --card: #f4f1e8; --card-head: #fbfaf7; --card-ink: #1c1c1c; --card-soft: #6f6a5e; --card-mark: #7a6538;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(176px * var(--cz)), 1fr));
+  row-gap: calc(14px * var(--cz)); position: relative;
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+}
+body.night #outline-board { --card: #e2ddd1; --card-head: #ebe7dd; }
+/* a part starts a fresh line, the way it starts a fresh page */
+.ob-part {
+  grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding: 10px 6px 0;
+  font-size: 11px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--accent);
+}
+.ob-part .ob-rule { flex: 1; height: 1px; background: color-mix(in srgb, var(--accent) 30%, transparent); }
+/* one mat under a chapter's cards: rounded where it starts and ends,
+   square where it runs on to the next line */
+.ob-cell { position: relative; background: var(--mat); padding: calc(8px * var(--cz)) calc(4px * var(--cz)); outline: none; }
+.ob-cell.first { margin-left: 5px; padding-left: calc(8px * var(--cz)); border-radius: 10px 0 0 10px; }
+.ob-cell.last { margin-right: 5px; padding-right: calc(8px * var(--cz)); border-radius: 0 10px 10px 0; }
+.ob-cell.first.last { border-radius: 10px; }
+.ob-card {
+  height: calc(112px * var(--cz)); box-sizing: border-box; border-radius: 3px;
+  background: var(--card); color: var(--card-ink);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.45), 0 5px 12px rgba(0,0,0,0.3);
+  padding: calc(7px * var(--cz)) calc(11px * var(--cz)); display: flex; flex-direction: column; gap: 3px;
+  overflow: hidden; cursor: grab; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  font-size: calc(13px * var(--cz));
+}
+body.light .ob-card { box-shadow: 0 0 0 1px #d9d3c4, 0 3px 8px rgba(60,50,30,0.12); }
+.ob-cell:focus-visible .ob-card { box-shadow: 0 0 0 3px var(--red), 0 5px 12px rgba(0,0,0,0.3); }
+.ob-chapter { background: var(--card-head); }
+.ob-head { display: flex; align-items: baseline; gap: 7px; min-height: 0; }
+.ob-chapter .ob-head { align-items: flex-end; border-bottom: 1px solid #e3b4ae; padding-bottom: 2px; }
+.ob-mark { font-family: var(--dropcap-font); font-size: 1.7em; line-height: 1; color: var(--card-mark); }
+.ob-mark.ob-word { font-family: inherit; font-size: 0.82em; letter-spacing: 2px; text-transform: uppercase; padding-bottom: 4px; }
+.ob-words { margin-left: auto; font-size: 0.82em; color: var(--card-soft); padding-bottom: 3px; white-space: nowrap; }
+.ob-letter { font-size: 0.82em; font-weight: 600; color: var(--card-mark); }
+.ob-flag { width: 7px; height: 7px; border-radius: 50%; background: var(--red); align-self: center; flex: none; }
+.ob-section .ob-flag { margin-left: auto; }
+.ob-text {
+  flex: 1; min-height: 0; font-family: var(--body-font); line-height: 1.4; overflow: hidden;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; outline: none;
+}
+.ob-chapter .ob-text { padding-top: 1px; -webkit-line-clamp: 4; }
+/* the page's own words, quoted: grayed, so they don't read as a note */
+.ob-text.excerpt { color: #8f897b; }
+.ob-text.empty { color: #9a9486; font-style: italic; }
+.ob-card.unwritten .ob-text:not(.empty) { color: #807a6c; font-style: italic; }
+.ob-foot { font-size: 0.82em; color: var(--card-soft); }
+
+/* a script's board: each scene its own card, no chapters to gather them */
+#outline-board.script-board { row-gap: calc(16px * var(--cz)); }
+#outline-board.script-board .ob-cell { background: none; padding: 0 calc(7px * var(--cz)); margin: 0; border-radius: 0; }
+#outline-board.script-board .ob-card { height: calc(146px * var(--cz)); }
+.ob-slug {
+  font-family: var(--sp-font, 'Courier Prime', 'Courier New', monospace); font-weight: bold; text-transform: uppercase;
+  font-size: 0.95em; line-height: 1.3; border-bottom: 1px solid #e3b4ae; padding-bottom: 3px; outline: none;
+  overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+}
+.ob-slug:empty::before { content: attr(data-ph); color: #b0a998; }
+.ob-cell.open .ob-slug { display: block; overflow: visible; cursor: text; }
+.ob-scene .ob-foot { letter-spacing: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#outline-board.tiles.script-board .ob-card { height: 64px; }
+#outline-board.tiles .ob-scene .ob-text { display: none; }
+
+/* the + on the seam after a card, and the card that ends the board */
+.ob-plus {
+  position: absolute; right: -11px; top: 50%; transform: translateY(-50%); z-index: 3;
+  width: 22px; height: 22px; padding: 0; border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); background: var(--bg);
+  color: var(--accent); font: 15px/19px -apple-system, BlinkMacSystemFont, sans-serif; text-align: center;
+  opacity: 0; transition: opacity 0.12s; cursor: pointer;
+}
+.ob-cell:hover .ob-plus, .ob-cell:focus-visible .ob-plus { opacity: 1; }
+.ob-cell.open .ob-plus, .ob-cell[data-new] .ob-plus, body.ob-dragging .ob-plus { display: none; }
+.ob-plus:hover { background: var(--accent); color: var(--bg); }
+.ob-add {
+  margin: calc(8px * var(--cz)) 5px; min-height: calc(112px * var(--cz)); border-radius: 6px;
+  border: 1px dashed color-mix(in srgb, var(--muted) 60%, transparent); background: none;
+  color: var(--muted); font: 13px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; cursor: pointer;
+}
+.ob-add:hover, .ob-add:focus-visible { color: var(--accent); border-color: var(--accent); }
+#outline-board.tiles .ob-add { min-height: 58px; }
+#outline-board.script-board .ob-add { margin: 0 calc(7px * var(--cz)); min-height: calc(146px * var(--cz)); }
+.ob-from {
+  font-family: var(--body-font); font-size: 0.85em; line-height: 1.4; color: #6f6a5e;
+  border-left: 2px solid #e3b4ae; padding-left: 8px; margin: 2px 0 4px;
+}
+
+/* tiles: zoomed out, a whole novel on one screen */
+#outline-board.tiles .ob-card { height: 58px; font-size: 11px; padding: 5px 8px; }
+#outline-board.tiles .ob-mark { font-size: 24px; }
+#outline-board.tiles .ob-mark.ob-word { font-size: 9px; }
+#outline-board.tiles .ob-text { -webkit-line-clamp: 2; }
+#outline-board.tiles .ob-foot, #outline-board.tiles .ob-words { display: none; }
+#outline-board.tiles .ob-chapter .ob-head { border-bottom: none; }
+#outline-board.tiles .ob-chapter .ob-text { display: none; }
+
+/* a card being written on lifts and grows */
+.ob-cell.open { z-index: 20; }
+.ob-cell.open .ob-card {
+  position: absolute; left: 0; top: 0; width: calc(200% - 8px); height: auto;
+  min-height: calc(180px * var(--cz)); cursor: auto; user-select: text; -webkit-user-select: text;
+  box-shadow: 0 2px 0 rgba(0,0,0,0.4), 0 24px 48px rgba(0,0,0,0.55); font-size: calc(15px * var(--cz));
+}
+.ob-cell.open-left .ob-card { left: auto; right: 0; }
+.ob-cell.open .ob-text { -webkit-line-clamp: unset; display: block; overflow: visible; min-height: 4.2em; color: var(--card-ink); font-style: normal; cursor: text; }
+.ob-text[contenteditable="true"]:empty::before { content: attr(data-ph); color: #9a9486; font-style: italic; }
+.ob-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 11px; color: var(--card-soft); padding-top: 6px; }
+.ob-tools button { white-space: nowrap; }
+.ob-tools button {
+  background: none; border: 1px solid #cfc8b8; border-radius: 12px; padding: 3px 10px;
+  font: inherit; color: #5b5648; cursor: pointer;
+}
+.ob-tools button:hover { border-color: var(--accent); color: var(--card-ink); }
+.ob-tools span { margin-left: auto; }
+
+/* dragging */
+body.ob-dragging, body.ob-dragging * { cursor: grabbing !important; user-select: none !important; }
+.ob-cell.ob-lifted .ob-card { opacity: 0.3; }
+.ob-float {
+  position: fixed; z-index: 900; pointer-events: none; transform: rotate(-2deg);
+  box-shadow: 0 2px 0 rgba(0,0,0,0.4), 0 22px 40px rgba(0,0,0,0.55) !important;
+}
+#ob-caret {
+  position: fixed; z-index: 899; width: 3px; border-radius: 2px; pointer-events: none;
+  background: var(--accent); box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+#outline-board-hint { margin-top: 34px; }
+#editor-view.board-on #outline-board-hint { color: #7d7a72; }
+body.bright #editor-view.board-on #outline-board-hint { color: #aca699; }
+body.light #editor-view.board-on #outline-board-hint { color: #6a665e; }
+
+.ob-cell.ob-join .ob-card { box-shadow: 0 0 0 3px var(--accent), 0 0 24px color-mix(in srgb, var(--accent) 50%, transparent); }
+#ob-join-tip {
+  position: fixed; z-index: 899; pointer-events: none; font: 12px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  color: var(--accent); background: var(--bg); padding: 2px 8px; border-radius: 10px;
+}
+
+/* loose cards: the right-hand pane while the Outline is up */
+.side-title-loose, #loose-list { display: none; }
+#editor-view.outline-tab .side-title-notes, #editor-view.outline-tab #sticky-list { display: none; }
+#editor-view.outline-tab .side-title-loose { display: inline; }
+#editor-view.outline-tab #loose-list { display: flex; }
+#loose-list { flex-direction: column; gap: 12px; padding: 0 14px; --cz: 1; }
+#loose-list .ob-card { height: auto; min-height: 64px; background: #f4f1e8; color: #1c1c1c; }
+#loose-list .ob-text { -webkit-line-clamp: 5; }
+#loose-list .ob-cell { background: none; padding: 0; }
+#loose-list .ob-cell.open .ob-card { position: static; width: auto; min-height: 120px; }
+#loose-list .ob-cell:nth-child(odd) .ob-card { transform: rotate(0.6deg); }
+#loose-list .ob-cell:nth-child(even) .ob-card { transform: rotate(-0.5deg); }
+#loose-list .ob-cell.open .ob-card { transform: none; }
+.loose-add {
+  height: 40px; border: 1px dashed #4a4a4a; border-radius: 4px; background: none;
+  color: var(--muted); font: inherit; font-size: 12px; cursor: pointer;
+}
+.loose-add:hover { color: var(--accent); border-color: var(--accent); }
+.loose-tip { font-size: 12px; line-height: 1.5; color: var(--muted); font-style: italic; padding: 0 2px; }
+#side-pane.drop-over { box-shadow: inset 0 0 0 2px var(--accent); }
+
+/* the outline note walking a line ahead of the writer (app.js, the note
+   walks ahead): room under the caret's paragraph, the note set in it */
+.chapter.sheet { position: relative; }
+.chapter-body p[data-walk] { margin-bottom: var(--walk-h, 2em); }
+.walk-note {
+  position: absolute; z-index: 2; box-sizing: border-box; padding: 2px 0 0 2em;
+  font-family: var(--body-font); font-style: italic; line-height: 1.5;
+  font-size: calc(var(--editor-size, 17px) * 0.82 * var(--page-zoom, 1));
+  color: color-mix(in srgb, var(--ink) 38%, var(--paper));
+  user-select: none; -webkit-user-select: none; pointer-events: none;
+}
+.walk-note .wn-dismiss {
+  pointer-events: auto; margin-left: 10px; background: none; border: none; padding: 0;
+  font: 11px/1.4 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; font-style: normal;
+  color: color-mix(in srgb, var(--ink) 30%, var(--paper)); cursor: pointer; opacity: 0.7;
+}
+.walk-note .wn-dismiss:hover, .walk-note .wn-dismiss:focus-visible { color: var(--accent); opacity: 1; }
+body.focus-mode .walk-note { opacity: 0.6; }
 
 /* Ghost paragraphs: outline notes waiting in the manuscript to become prose */
 .chapter-body p.ghost {
@@ -650,6 +1270,10 @@ body.bright .spell-menu button { color: #eee; }
 
 /* --- Left nav pane --- */
 #nav-hotzone { position: fixed; left: 0; top: 0; bottom: 40px; width: 18px; z-index: 60; }
+/* the panes wake from well inside the margins, never over the page itself */
+#nav-hotzone, #side-hotzone {
+  width: clamp(18px, calc((100vw - min((var(--sheet-w) + var(--page-gutter)) * var(--page-zoom, 1), 94vw)) / 2 - 24px), 96px);
+}
 #nav-pane {
   position: fixed; left: 0; top: 0; bottom: 40px; width: 248px;
   background: var(--pane); border-right: 1px solid #2c2c2c;
@@ -657,6 +1281,13 @@ body.bright .spell-menu button { color: #eee; }
   z-index: 70; overflow-y: auto; padding: 40px 0 20px;
 }
 #nav-pane.open { transform: translateX(0); }
+#nav-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0 16px 10px 18px; font-size: 12px; text-transform: uppercase;
+  letter-spacing: 2px; color: var(--muted);
+}
+#nav-pin { background: none; border: none; color: #555; font-size: 15px; }
+#nav-pin.pinned { color: var(--accent); }
 .nav-item {
   padding: 9px 18px 10px; cursor: pointer;
   border-left: 3px solid transparent;
@@ -687,6 +1318,8 @@ body.bright .spell-menu button { color: #eee; }
   outline: none; min-height: 15px; cursor: text;
 }
 .nav-note:empty::before { content: var(--ph-nav-note, 'What happens here…'); color: #4a4a4a; font-style: italic; }
+/* a long outline note shows its first two lines until you click into it */
+.nav-note:not(:focus) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .nav-note:focus { color: #ccc; }
 #nav-add {
   display: block; width: calc(100% - 36px); margin: 14px 18px 0;
@@ -695,8 +1328,59 @@ body.bright .spell-menu button { color: #eee; }
 }
 #nav-add:hover { color: var(--accent); border-color: var(--accent); }
 
+/* the faint + on the seam between two boxes (and above the first, below the
+   last): a chapter, a part or a page, right there. It wakes as the pointer
+   nears the seam (app.js). */
+.nav-gap { position: relative; height: 0; z-index: 3; }
+.nav-gap::before {
+  content: ''; position: absolute; left: 18px; right: 18px; top: 0;
+  border-top: 1px dashed #3a3a3a; opacity: 0; transition: opacity 0.12s ease; pointer-events: none;
+}
+.nav-gap .ng-plus {
+  position: absolute; left: 50%; top: 0; width: 20px; height: 20px; margin: -10px 0 0 -10px; padding: 0;
+  border-radius: 50%; border: 1px solid #4a4a4a; background: var(--pane); color: #8a8a8a;
+  font-size: 14px; line-height: 17px; text-align: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.12s ease;
+}
+.nav-gap.near::before, .nav-gap.near .ng-plus { opacity: 1; }
+.nav-gap.near .ng-plus { pointer-events: auto; }
+.nav-gap .ng-plus:hover { color: var(--accent); border-color: var(--accent); }
+/* the boxes: a page goes by its name, a part stands over what it gathers */
+.nav-item.nav-page .n-label { font-size: 11px; letter-spacing: 1.6px; text-transform: uppercase; }
+.nav-item.kind-part .n-label { font-size: 11.5px; letter-spacing: 2.2px; text-transform: uppercase; }
+.nav-item.kind-part .n-row { color: #c9c2b2; }
+.nav-item.in-part { padding-left: 32px; }
+.nav-item.nav-page .nav-note { cursor: pointer; font-style: italic; }
+.nav-note.nav-peek:empty::before { content: attr(data-ph); }
+/* a new box opens in place */
+.nav-item.just-added { animation: neo-grow 0.32s ease; overflow: hidden; }
+@keyframes neo-grow { from { max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; } to { max-height: 90px; opacity: 1; } }
+
+/* a small menu where the pointer is (right-click a box, the + between them) */
+.pop-menu {
+  position: fixed; z-index: 950; min-width: 200px; max-height: calc(100vh / var(--ui-zoom, 1) - 16px); overflow-y: auto;
+  zoom: var(--ui-zoom, 1);
+  background: #262626; border: 1px solid #3a3a3a; border-radius: 8px; padding: 5px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+  display: flex; flex-direction: column;
+  font: 13px/1.3 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+}
+.pop-menu .pm-title {
+  font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted);
+  padding: 5px 10px 6px 26px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pop-menu button {
+  background: none; border: none; color: #ddd; text-align: left; font: inherit;
+  padding: 5px 14px 5px 26px; border-radius: 5px; position: relative; white-space: nowrap;
+}
+.pop-menu button:focus { background: #353535; outline: none; }
+.pop-menu button.on::before { content: '✓'; position: absolute; left: 9px; color: var(--accent); }
+.pop-menu button:disabled { color: #5d5d5d; cursor: default; }
+.pop-menu button.danger { color: #d97b6c; }
+.pop-menu .pm-sep { height: 1px; background: #3a3a3a; margin: 4px 6px; flex: none; }
+
 /* --- Right side pane --- */
-#side-hotzone { position: fixed; right: 0; top: 0; bottom: 40px; width: 18px; z-index: 60; }
+#side-hotzone { position: fixed; right: 0; top: 0; bottom: 40px; z-index: 60; }
 #side-pane {
   position: fixed; right: 0; top: 0; bottom: 40px; width: 250px;
   background: var(--pane); border-left: 1px solid #2c2c2c;
@@ -709,7 +1393,11 @@ body.bright .spell-menu button { color: #eee; }
   padding: 0 16px 14px; font-size: 12px; text-transform: uppercase;
   letter-spacing: 2px; color: var(--muted);
 }
+/* the pin sits in the pane's top corner, above the cards, where it stays as
+   the pane scrolls: below the window's drag strip (#dragstrip, 28px), which
+   would take the click and move the window instead */
 #side-pin {
+  position: fixed; top: 32px; right: 10px; -webkit-app-region: no-drag;
   background: none; border: none; color: #555; font-size: 15px;
 }
 #side-pin.pinned { color: var(--accent); }
@@ -742,6 +1430,9 @@ body.bright .spell-menu button { color: #eee; }
   opacity: 0.35; transition: opacity 0.15s ease;
 }
 #bottombar:hover, #bottombar.attn { opacity: 1; }
+/* full screen plus focus mode: nothing on screen but the page; the bar
+   comes back when the pointer reaches the bottom edge */
+body.full-screen.focus-mode #bottombar:not(:hover):not(.attn) { opacity: 0; }
 #back-to-shelf {
   background: none; border: none; color: var(--muted); font-size: 12px;
 }
@@ -777,6 +1468,8 @@ body.bright .spell-menu button { color: #eee; }
   color: #eee; font-size: 13px; padding: 6px 10px; width: 170px;
 }
 #searchbar input:focus { outline: none; border-color: var(--accent); }
+/* outside the manuscript Find only finds */
+#searchbar.find-only #replace-input, #searchbar.find-only #replace-one, #searchbar.find-only #replace-all { display: none; }
 #searchbar button {
   background: none; border: 1px solid #3a3a3a; border-radius: 5px;
   color: #aaa; font-size: 12px; padding: 5px 9px;
@@ -818,6 +1511,10 @@ body.bright .spell-menu button { color: #eee; }
   padding: 6px 14px; color: #191919; font-size: 12px;
 }
 #stats-chart { background: #1d1d1d; border-radius: 8px; padding: 10px; margin-top: 8px; }
+/* on a phone the modal is narrower than the chart's 520px: it scales down instead of spilling out */
+@media (max-width: 600px) {
+  #stats-chart { box-sizing: border-box; max-width: 100%; height: auto; display: block; }
+}
 
 /* --- Keyboard shortcut reference --- */
 .shortcuts-modal {
@@ -829,10 +1526,14 @@ body.bright .spell-menu button { color: #eee; }
 .shortcuts-header h2 { font-size: 23px; margin: 0; }
 .shortcuts-content {
   flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
-  padding: 22px 30px 28px; display: flex; gap: 32px; align-items: flex-start;
+  padding: 22px 30px 28px; display: flex; flex-wrap: wrap; gap: 24px 32px; align-items: flex-start;
 }
 .shortcuts-content::-webkit-scrollbar-thumb { background: #555; }
 .shortcuts-column { flex: 1; min-width: 0; }
+/* a long section under both columns, its rows in two columns of their own */
+.shortcuts-wide { flex-basis: 100%; min-width: 0; }
+.shortcuts-wide dl { columns: 2; column-gap: 32px; }
+.shortcuts-wide .shortcut-row { break-inside: avoid; }
 .shortcuts-section + .shortcuts-section { margin-top: 24px; }
 .shortcuts-section h3 { font-size: 14px; font-weight: 600; color: var(--accent); margin-bottom: 8px; }
 .shortcut-row {
@@ -858,6 +1559,7 @@ body.bright .spell-menu button { color: #eee; }
 @media (max-width: 760px) {
   .shortcuts-content { flex-direction: column; align-items: stretch; gap: 24px; }
   .shortcuts-column { display: contents; }
+  .shortcuts-wide dl { columns: 1; }
   .shortcuts-section + .shortcuts-section { margin-top: 0; }
   .shortcuts-footer { flex-wrap: wrap; }
 }
@@ -868,14 +1570,14 @@ body.bright .spell-menu button { color: #eee; }
 
 /* --- Brighter interface (View menu) — the quiet default, turned up --- */
 body.bright { --muted: #b4b4b4; }
-body.bright #bottombar { opacity: 0.92; }
+body.bright #bottombar { opacity: 1; }
 body.bright .tab { color: #b4b4b4; }
 body.bright .nav-item .n-row { color: #ccc; }
-body.bright .nav-item .n-words { color: #8f8f8f; }
-body.bright .nav-note { color: #999; }
-body.bright .shelf-grip { opacity: 0.55; }
+body.bright .nav-item .n-words { color: #a6a6a6; }
+body.bright .nav-note { color: #a6a6a6; }
+body.bright .shelf-grip { opacity: 1; color: #838383; }
 body.bright .book .b-refresh { color: rgba(255,255,255,0.4); }
-body.bright .new-book { border-color: #6a6a6a; color: #6a6a6a; }
+body.bright .new-book { border-color: #8a8a8a; color: #8a8a8a; }
 body.bright #add-shelf-btn, body.bright #import-btn { color: #b4b4b4; border-color: #555; }
 
 /* --- Hint toast --- */
@@ -886,19 +1588,794 @@ body.bright #add-shelf-btn, body.bright #import-btn { color: #b4b4b4; border-col
   box-shadow: 0 3px 14px rgba(0,0,0,0.4);
 }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; }
+/* 11px to grab, the thumb drawn 7px inside it (the border is see-through) */
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-thumb { background: transparent; border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; min-height: 44px; }
 ::-webkit-scrollbar-track { background: transparent; }
 /* the thumb only paints while the pane is actively scrolling */
-.show-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.16); }
-.show-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.28); }
+.show-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.16); }
+.show-scrollbar::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, 0.28); }
 /* bright mode is still a dark theme — thumbs stay light, just more present */
-body.bright .show-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.26); }
-body.bright .show-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.4); }
+body.bright .show-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.26); }
+body.bright .show-scrollbar::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, 0.4); }
 
 /* pinned notes pane: the page column shifts left to clear the pane */
 #editor-view.side-pinned #paper-scroll { left: calc(50% - 125px); }
 
+/* ================================================================== */
+/* ACCESSIBILITY                                                        */
+/* ================================================================== */
+
+/* the progress chart's legend */
+.stats-legend {
+  display: flex; justify-content: space-between; font-size: 10px; color: #666; padding: 2px 4px;
+}
+.stats-legend .sl-daily { color: #3d8a6a; }
+
+/* Where the keyboard is: a gold ring on whatever Tab reaches. The mouse
+   never sees it, and the page itself never gets one. */
+:where(button, [role="button"], [role="tab"], select, summary, a[href]):focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px;
+}
+.book:focus-visible, .new-book:focus-visible { outline-offset: 4px; border-radius: 3px 6px 6px 3px; }
+.tab:focus-visible { outline-offset: -2px; }
+
+/* The quiet chrome wakes for the keyboard as it does for the mouse. */
+#bottombar:has(:focus-visible) { opacity: 1; }
+#nav-pane:has(:focus-visible), #side-pane:has(:focus-visible) { transform: translateX(0); }
+.shelf:has(.shelf-label:focus-visible) .shelf-grip,
+.chapter-head:has(:focus-visible) .ch-sep { opacity: 0.6; }
+
+/* Brighter Interface (View menu, or the system's "Increase contrast"):
+   every text, hint and placeholder reads at 4.5:1, on paper and at night,
+   and no interface text is under 12px. The quiet default is untouched;
+   :where() keeps each rule exactly as strong as the one it brightens. */
+:where(body.bright) .btn-quiet { color: #8a8a8a; }
+:where(body.bright) #aux-paper h2 { color: #727272; }
+:where(body.bright) .ol-num { color: #767165; }
+:where(body.bright) .ol-hint { color: #75716a; }
+:where(body.bright) .darling .d-meta { font-size: 12px; color: #717171; }
+:where(body.bright) .darling button { font-size: 12px; color: #727272; }
+:where(body.bright) .darlings-empty { color: #75716a; }
+:where(body.bright) .nav-item .n-words { font-size: 12px; }
+:where(body.bright) #nav-add { color: #898989; }
+:where(body.bright) #side-pin { color: #8a8a8a; }
+:where(body.bright) .sticky .s-ch { font-size: 12px; color: #929292; }
+:where(body.bright) .sticky .s-actions button { color: #929292; font-size: 12px; }
+:where(body.bright) .stickies-empty { color: #8a8a8a; }
+:where(body.bright) .sticky textarea::placeholder { color: #929292; }
+:where(body.bright) #search-count,
+:where(body.bright) .stats-nums .lbl,
+:where(body.bright) .shortcut-row small,
+:where(body.bright) .shortcut-or { font-size: 12px; }
+:where(body.bright) .stats-legend { font-size: 12px; color: #8b8b8b; }
+:where(body.bright) .stats-legend .sl-daily { color: #54987c; }
+body.night:where(.bright) .darlings-empty,
+body.night:where(.bright) .ol-hint { color: #8d8b84; }
+body.night:where(.bright) .ol-num { color: #8f8a7d; }
+:where(body.night.bright) .darling .d-meta, :where(body.night.bright) .darling button { color: #999; }
+body.bright [contenteditable][data-ph]:empty::before,
+body.bright #aux-editor:empty::before,
+body.bright .ol-text:empty::before { color: #75716a; }
+body.bright .chapter-head .ch-title:empty::before { color: #747068; }
+body.bright .chapter-body p.ghost { color: #767168; }
+body.bright .chapter-body p.scene-break { color: #727272; }
+body.bright .nav-note:empty::before { color: #919191; }
+body.bright.night [contenteditable][data-ph]:empty::before,
+body.bright.night #aux-editor:empty::before,
+body.bright.night .chapter-head .ch-title:empty::before { color: #8d8b84; }
+body.bright.night .chapter-body p.ghost { color: #8f8b81; }
+body.bright.night .chapter-body p.scene-break { color: #8f8a7d; }
+body.bright .book .b-refresh { color: rgba(255,255,255,0.65); }
+body.bright .chapter-body.blank::before,
+body.bright .chapter.kind-copyright .chapter-head, body.bright .chapter.kind-dedication .chapter-head,
+body.bright .chapter.kind-epigraph .chapter-head { color: #75716a; }
+body.bright.night .chapter-body.blank::before,
+body.bright.night .chapter.kind-copyright .chapter-head, body.bright.night .chapter.kind-dedication .chapter-head,
+body.bright.night .chapter.kind-epigraph .chapter-head { color: #8d8b84; }
+body.bright .nav-gap .ng-plus { color: #b4b4b4; border-color: #6a6a6a; }
+body.bright .pop-menu button:disabled { color: #8a8a8a; }
+
+/* The system's "Reduce motion": no fades, slides or shimmer. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important; scroll-behavior: auto !important;
+  }
+  .book:hover, .new-book:hover { transform: none; }
+}
+
+/* Windows high contrast: the system picks every color; keep what color
+   alone used to say (the open tab, the current chapter, the page's edge). */
+@media (forced-colors: active) {
+  #bottombar { opacity: 1; }
+  .tab.active { text-decoration: underline; text-underline-offset: 4px; }
+  .nav-item.current { border-left-color: Highlight; }
+  .sheet, #aux-paper { border: 1px solid CanvasText; }
+  .ph-mark { border: 1px solid Highlight; }
+}
+
+/* Interface size (View menu): the shelf, the panes, the bottom bar and the
+   dialogs grow together; the page keeps its own size and zoom. Lengths
+   that meet the page or the window are corrected for the zoom. */
+:root { --ui-zoom: 1; }
+#bookshelf-view, #nav-pane, #side-pane, #bottombar, #searchbar, #hint, .modal { zoom: var(--ui-zoom); }
+#paper-scroll, #nav-hotzone, #side-hotzone { bottom: calc(40px * var(--ui-zoom)); }
+#editor-view.side-pinned #paper-scroll { left: calc(50% - 125px * var(--ui-zoom)); }
+#editor-view.nav-pinned #paper-scroll { left: calc(50% + 124px * var(--ui-zoom)); }
+#editor-view.nav-pinned.side-pinned #paper-scroll { left: calc(50% - 1px * var(--ui-zoom)); }
+/* …except the Outline's cards, which fill the room between whichever panes
+   are pinned (these come after the page rules above, so they win, #312) */
+#editor-view.board-on.side-pinned #paper-scroll { left: 0; right: calc(250px * var(--ui-zoom)); }
+#editor-view.board-on.nav-pinned #paper-scroll { left: calc(248px * var(--ui-zoom)); }
+#editor-view.board-on.nav-pinned.side-pinned #paper-scroll { left: calc(248px * var(--ui-zoom)); right: calc(250px * var(--ui-zoom)); }
+.modal { max-height: calc(85vh / var(--ui-zoom)); max-width: calc(100vw / var(--ui-zoom) - 32px); }
+.font-list { max-height: calc(50vh / var(--ui-zoom)); }
+.shortcuts-modal {
+  width: min(920px, calc(100vw / var(--ui-zoom) - 48px));
+  height: min(720px, calc(100vh / var(--ui-zoom) - 80px));
+}
+/* An enlarged bottom bar in a small window keeps what matters: the tabs,
+   today's words and the word count. At Normal size nothing is shed. */
+.ui-zoomed #bottombar { container-type: inline-size; }
+.ui-zoomed #counters span, .ui-zoomed .tab, .ui-zoomed #back-to-shelf { white-space: nowrap; }
+@container (max-width: 900px) {
+  .ui-zoomed #pos-counter { display: none; }
+  .ui-zoomed .tab { padding: 5px 10px; }
+  .ui-zoomed .tab.darlings { margin-left: 8px; }
+  .ui-zoomed #counters { gap: 12px; }
+}
+@container (max-width: 700px) {
+  .ui-zoomed #zoom-control { display: none; }
+  .ui-zoomed #back-to-shelf span[data-i18n] { display: none; }
+}
+
 /* Help → Check for Update…: the download bar */
 .up-bar { height: 6px; background: #2a2a2a; border-radius: 3px; margin-top: 12px; overflow: hidden; }
 .up-fill { height: 100%; width: 0; background: var(--accent); transition: width 0.2s ease; }
+
+/* ================================================================== */
+/* LIGHT (View → Page → Light): the paper page in a light room, and   */
+/* the whole app with it. Text reads at 4.5:1 or better; the hints    */
+/* stay as quiet as they are in the dark, and Brighter Interface      */
+/* turns them up the same way.                                        */
+/* ================================================================== */
+html:has(> body.light) { background: #efede8; }
+body.light {
+  --bg: #efede8;
+  --bg-soft: #fbfaf8;
+  --pane: #f5f3ef;
+  --accent: #7c5d26;
+  --muted: #6a665e;
+  color: #2b2926;
+}
+/* the gold that sits under dark text keeps its own light shade */
+body.light .btn-gold, body.light .stats-row button { background: #c9a86a; color: #191919; }
+
+/* the shelf */
+body.light #author-chip:hover, body.light .shelf-label:focus { color: #1c1a17; }
+body.light #pen-rack { border-color: #d9d4ca; box-shadow: 0 8px 30px rgba(0,0,0,0.14); }
+body.light .pen-slot { border-bottom-color: #d6cab3; }
+body.light .pen-slot.over { color: #1c1a17; border-bottom-color: var(--accent); background: rgba(0,0,0,0.04); }
+body.light #add-shelf-btn, body.light #import-btn { border-color: #cfcac0; }
+body.light #add-shelf-btn:hover, body.light #import-btn:hover { color: var(--accent); border-color: var(--accent); }
+body.light .shelf-grip { color: #b3ada2; }
+body.light .shelf-grip:hover { color: var(--accent); }
+body.light .shelf-books { border-bottom-color: #d6cab3; box-shadow: 0 10px 14px -12px rgba(0,0,0,0.3); }
+body.light .shelf-books.drag-over { background: rgba(124,93,38,0.06); }
+body.light .book { box-shadow: inset 3px 0 6px -3px rgba(0,0,0,0.35), 2px 3px 8px rgba(0,0,0,0.22); }
+body.light .book.bound-cover { box-shadow: inset 4px 0 8px -3px rgba(0,0,0,0.4), 3px 6px 16px rgba(0,0,0,0.28); }
+body.light .new-book { border-color: #bdb7ac; color: #a59f94; background: rgba(0,0,0,0.015); }
+body.light .new-book:hover { color: var(--accent); border-color: var(--accent); }
+body.light .book.page-tile { background: #fdfbf6; color: #6f675b; box-shadow: 0 0 0 1px rgba(0,0,0,0.07), 1px 2px 6px rgba(0,0,0,0.16); }
+body.light .book.page-tile.kind-part { background: #f5f0e4; }
+body.light .ghost-page { border-color: rgba(0,0,0,0.24); color: rgba(0,0,0,0.45); }
+body.light .ghost-page:hover { color: var(--accent); border-color: var(--accent); }
+body.light .part-seam { color: rgba(0,0,0,0.5); }
+body.light .part-seam .ps-line { border-left-color: rgba(0,0,0,0.25); }
+body.light .part-seam .ps-plus { border-color: rgba(0,0,0,0.3); }
+body.light .part-seam:hover { color: var(--accent); }
+body.light .part-seam:hover .ps-plus { border-color: var(--accent); }
+body.light .part-seam:hover .ps-line { border-left-color: var(--accent); }
+
+/* a page, open */
+body.light .page-sheet-backdrop { background: rgba(70,64,54,0.3); }
+body.light .page-sheet .ps-name { color: #3f3b35; }
+body.light .page-sheet .ps-done { border-color: #a39d92; color: #2b2926; background: rgba(255,255,255,0.55); }
+body.light .page-sheet .ps-done:hover { border-color: var(--accent); color: var(--accent); }
+body.light .ps-paper { box-shadow: 0 20px 60px rgba(0,0,0,0.22); }
+
+/* dialogs */
+body.light .modal-backdrop { background: rgba(60,55,45,0.28); }
+body.light .modal-backdrop.font-picker { background: none; }
+body.light .modal { border-color: #dcd7ce; box-shadow: 0 18px 60px rgba(0,0,0,0.18); }
+body.light .font-picker .modal { box-shadow: 0 8px 30px rgba(0,0,0,0.16); }
+body.light .modal input { background: #fff; border-color: #cfcac0; color: #1c1a17; }
+body.light .modal input:focus { border-color: var(--accent); }
+body.light .btn-quiet { color: #5f5b53; }
+body.light .btn-quiet:hover { color: #1c1a17; }
+/* File → Export → Manuscript Format… (app.js, MANUSCRIPT FORMAT) */
+.ms-modal { width: 640px; }
+.ms-modal .ms-lead { font-size: 13px; color: var(--muted); }
+.ms-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.ms-modal fieldset { border: none; margin: 0; padding: 0; min-width: 0; }
+.ms-modal legend { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 8px; }
+.ms-modal label { margin-bottom: 10px; font-size: 12.5px; }
+.ms-modal input[type="text"], .ms-modal input[type="email"], .ms-modal textarea { margin-top: 4px; }
+.ms-modal textarea { display: block; width: 100%; margin-top: 4px; padding: 8px 12px; background: var(--bg); border: 1px solid #3a3a3a; border-radius: 6px; color: #eee; font: inherit; font-size: 13px; resize: vertical; }
+.ms-modal textarea:focus { outline: none; border-color: var(--accent); }
+.ms-modal .ms-inline { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.ms-modal .ms-inline input { display: inline; width: auto; margin: 0; }
+.ms-font { display: flex; gap: 16px; margin: 4px 0 6px; }
+.ms-header-eg { font-size: 11.5px !important; color: var(--muted); margin: -4px 0 10px !important; font-family: "Times New Roman", serif; }
+.ms-count { font-size: 12.5px !important; color: var(--muted); margin: 6px 0 14px !important; }
+.ms-actions { display: flex; justify-content: flex-end; gap: 10px; }
+body.light .ms-modal textarea { background: #fff; border-color: #cfcac0; color: #1c1a17; }
+@media (max-width: 700px) { .ms-cols { grid-template-columns: 1fr; } }
+body.light .fr-font, body.light .fr-choice { background: #fff; border-color: #d6d1c7; color: #2b2926; }
+body.light .fr-font:hover { border-color: #a09a8f; }
+body.light .fr-font.sel { border-color: var(--accent); color: var(--accent); }
+body.light .fr-choice:hover { border-color: var(--accent); }
+body.light .fr-choice.danger { border-color: #e2b9b0; }
+body.light .fr-choice.danger strong { color: #a8412f; }
+body.light #fr-error { color: #a8412f; }
+body.light #fr-sample { box-shadow: 0 0 0 1px #e6e1d6; }
+body.light .about-version { color: #6a665e; }
+body.light .modal p.about-line { color: #77726a; }
+body.light .up-bar { background: #e4e0d8; }
+
+/* the page's surround */
+body.light .sheet, body.light #aux-paper { box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 6px 28px rgba(0,0,0,0.1); }
+body.light .spell-menu { background: #fff; border-color: #d9d4ca; box-shadow: 0 6px 24px rgba(0,0,0,0.14); }
+body.light .spell-menu button { color: #2b2926; }
+body.light .spell-menu button:hover:not(:disabled), body.light .spell-menu button:focus-visible { background: #f0ede7; }
+body.light .spell-menu button:disabled { color: #857f75; }
+body.light .spell-menu .sm-sep { background: #e6e2da; }
+
+/* the panes */
+body.light #nav-pane { border-right-color: #dedad2; }
+body.light #side-pane { border-left-color: #dedad2; }
+body.light #nav-pin, body.light #side-pin { color: #a39d92; }
+body.light #nav-pin.pinned, body.light #side-pin.pinned { color: var(--accent); }
+body.light .nav-item:hover { background: #ebe8e2; }
+body.light .nav-item .n-row { color: #4a463f; }
+body.light .nav-item:hover .n-row, body.light .nav-item.current .n-row { color: #1c1a17; }
+body.light .nav-item .n-words { color: #8f8a80; }
+body.light .nav-note { color: #6f6b63; }
+body.light .nav-note:empty::before { color: #b0aa9f; }
+body.light .nav-note:focus { color: #2b2926; }
+body.light #nav-add { border-color: #cfcac0; color: #8f8a80; }
+body.light #nav-add:hover { color: var(--accent); border-color: var(--accent); }
+body.light .sticky { background: #fbf5e3; color: #3a362f; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+body.light .sticky .s-ch { color: #857f73; }
+body.light .sticky textarea { color: #2b2926; }
+body.light .sticky .s-actions button { color: #857f73; }
+body.light .sticky .s-actions button:hover { color: var(--accent); }
+body.light .sticky .s-actions .s-sep { color: #c2bcb0; }
+body.light .stickies-empty { color: #8f8a80; }
+
+/* the bottom bar and the find bar */
+body.light #bottombar { border-top-color: #dcd8d0; }
+body.light .tab:not(.active):hover, body.light #counters span:hover,
+body.light #zoom-control:hover, body.light #zoom-control button:hover { color: #1c1a17; }
+body.light .tab.active { background: #e4e0d8; }
+body.light #searchbar { background: #fff; border-color: #d9d4ca; box-shadow: 0 6px 24px rgba(0,0,0,0.12); }
+body.light #searchbar input { background: #faf9f6; border-color: #cfcac0; color: #1c1a17; }
+body.light #searchbar input:focus { border-color: var(--accent); }
+body.light #searchbar button { border-color: #d6d1c7; color: #5a564e; }
+body.light #searchbar button:hover { color: var(--accent); border-color: var(--accent); }
+body.light #hint { background: #2b2926; color: #f0ede7; box-shadow: 0 3px 14px rgba(0,0,0,0.2); }
+
+/* Goals, the shortcuts */
+body.light .stats-row input, body.light .stats-row select { background: #fff; border-color: #cfcac0; color: #1c1a17; }
+body.light .stats-row input:focus, body.light .stats-row select:focus { border-color: var(--accent); }
+body.light #stats-chart { background: #f4f2ee; }
+body.light #stats-chart path, body.light #stats-chart line { stroke: #9b7430; }
+body.light .stats-legend { color: #77726a; }
+body.light .stats-legend .sl-daily { color: #3d6f59; }
+body.light .shortcuts-modal { box-shadow: 0 24px 80px rgba(0,0,0,0.2); }
+body.light .shortcuts-header, body.light .shortcuts-footer { border-color: #e0dcd4; }
+body.light .shortcut-row { border-bottom-color: #ebe7e0; }
+body.light .shortcut-row small, body.light .shortcut-or { color: #6f6a60; }
+body.light .shortcut-row kbd { color: #2b2926; background: #f4f2ee; border-color: #cfcac0; }
+body.light .shortcuts-footer span { color: #5a564e; }
+body.light .shortcuts-content::-webkit-scrollbar-thumb { background: #c4bfb5; }
+body.light .show-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(0,0,0,0.18); }
+body.light .show-scrollbar::-webkit-scrollbar-thumb:hover { background-color: rgba(0,0,0,0.3); }
+
+body.light .nav-gap::before { border-top-color: #d3cec4; }
+body.light .nav-gap .ng-plus { border-color: #cfcac0; color: #8f8a80; }
+body.light .nav-gap .ng-plus:hover { color: var(--accent); border-color: var(--accent); }
+body.light .nav-item.kind-part .n-row { color: #3a362f; }
+body.light .pop-menu { background: #fff; border-color: #d9d4ca; box-shadow: 0 8px 28px rgba(0,0,0,0.16); }
+body.light .pop-menu button { color: #2b2926; }
+body.light .pop-menu button:focus { background: #f0ede7; }
+body.light .pop-menu button:disabled { color: #aaa49a; }
+body.light .pop-menu button.danger { color: #a8412f; }
+body.light .pop-menu .pm-sep { background: #e6e2da; }
+
+/* Light with Brighter Interface: the quiet parts turned up, dark on light */
+body.light.bright { --muted: #55514a; }
+body.light.bright .tab { color: #4f4b44; }
+body.light.bright .tab.active { color: var(--accent); }
+body.light.bright .nav-item .n-row { color: #2f2c28; }
+body.light.bright .nav-item .n-words { color: #5f5b53; }
+body.light.bright .nav-note { color: #4f4b44; }
+body.light.bright .nav-note:empty::before { color: #6f6a62; }
+body.light.bright .shelf-grip { color: #77726a; }
+body.light.bright .new-book { border-color: #8f897e; color: #77726a; }
+body.light.bright #add-shelf-btn, body.light.bright #import-btn { color: var(--muted); border-color: #a39d92; }
+body.light.bright #nav-add { color: #5f5b53; }
+body.light.bright #nav-pin:not(.pinned), body.light.bright #side-pin:not(.pinned) { color: #77726a; }
+body.light.bright .sticky .s-ch, body.light.bright .sticky .s-actions button, body.light.bright .stickies-empty { color: #66615a; }
+body.light.bright .sticky textarea::placeholder { color: #77726a; }
+body.light.bright .stats-legend { color: #5f5b53; }
+body.light.bright .ghost-page { border-color: rgba(0,0,0,0.4); color: rgba(0,0,0,0.62); }
+body.light.bright .nav-gap .ng-plus { color: #5f5b53; border-color: #8f897e; }
+body.light.bright .pop-menu button:disabled { color: #77726a; }
+body.light.bright .show-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(0,0,0,0.3); }
+body.light.bright .show-scrollbar::-webkit-scrollbar-thumb:hover { background-color: rgba(0,0,0,0.45); }
+
+
+/* ===== Greek typography =====
+   Greek glyph-safe fonts for titles, authors and drop caps.
+   The original NEO display fonts are Latin-only subsets. */
+html[lang^="el"] {
+  --dropcap-font: Georgia, "Times New Roman", serif;
+}
+
+/* Cover author */
+html[lang^="el"] .book .b-author {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Sans / condensed-style covers */
+html[lang^="el"] .book.cv-stack .b-title,
+html[lang^="el"] .book.cv-bebas .b-title,
+html[lang^="el"] .book.cv-band .b-title,
+html[lang^="el"] .book.cv-oswald .b-title {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Serif / literary-style covers */
+html[lang^="el"] .book.cv-black .b-title,
+html[lang^="el"] .book.cv-fat .b-title,
+html[lang^="el"] .book.cv-fat .b-line.b-ital,
+html[lang^="el"] .book.cv-cinzel .b-title {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+/* ========================= SCREENPLAYS ========================= */
+/* A script (book.json "format": "screenplay") is set as it will print:
+   Courier Prime, 12 point, on letter paper. Every length below is in em of
+   the script's type, so the page is 51em wide (8.5in) and a line is 1em
+   tall (12pt): the text wraps the same at every zoom, on every screen and
+   in the PDF, and app.js can count lines to place the page breaks. The
+   page numbers, the gaps between pages, (CONT'D) and the gray suggestions
+   are drawn here from data-* marks that app.js sets and never saves. */
+@font-face { font-family: 'Courier Prime'; src: url('fonts/courier-prime-latin-400-normal.woff2') format('woff2'); font-weight: 400; font-style: normal; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Courier Prime'; src: url('fonts/courier-prime-latin-400-italic.woff2') format('woff2'); font-weight: 400; font-style: italic; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Courier Prime'; src: url('fonts/courier-prime-latin-700-normal.woff2') format('woff2'); font-weight: 700; font-style: normal; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Courier Prime'; src: url('fonts/courier-prime-latin-700-italic.woff2') format('woff2'); font-weight: 700; font-style: italic; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Courier Prime'; src: url('fonts/courier-prime-latin-ext-400-normal.woff2') format('woff2'); font-weight: 400; font-style: normal; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'Courier Prime'; src: url('fonts/courier-prime-latin-ext-400-italic.woff2') format('woff2'); font-weight: 400; font-style: italic; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'Courier Prime'; src: url('fonts/courier-prime-latin-ext-700-normal.woff2') format('woff2'); font-weight: 700; font-style: normal; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'Courier Prime'; src: url('fonts/courier-prime-latin-ext-700-italic.woff2') format('woff2'); font-weight: 700; font-style: italic; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+:root { --sp-font: 'Courier Prime', 'Courier New', Courier, monospace; --sp-gap: 44px; }
+
+/* --- the script on the shelf: white card stock, its title typed, two brass brads --- */
+.book.script-tile {
+  width: 116px; border-radius: 2px 3px 3px 2px; display: block;
+  background: #f4f1ea; color: #1c1c1c;
+  box-shadow: inset 3px 0 6px -3px rgba(0,0,0,0.22), 2px 3px 8px rgba(0,0,0,0.45);
+}
+.script-tile .st-text {
+  position: absolute; left: 20px; right: 10px; top: 30%;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  text-align: center; font-family: var(--sp-font); pointer-events: none;
+}
+.script-tile .st-title { font-size: 10px; line-height: 1.25; text-transform: uppercase; overflow-wrap: anywhere; }
+.script-tile .st-title.long { font-size: 8px; }
+.script-tile .st-author { font-size: 7px; line-height: 1.3; color: #55524c; overflow-wrap: anywhere; }
+.script-tile .st-brad {
+  position: absolute; left: 6px; width: 8px; height: 8px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff3c4 0, #e6c56f 28%, #b08a3a 62%, #6e5420 100%);
+  box-shadow: 0 1px 1.5px rgba(0,0,0,0.55);
+}
+.script-tile .st-brad.top { top: 15px; }
+.script-tile .st-brad.bot { bottom: 15px; }
+.script-tile .st-hole {
+  position: absolute; left: 8px; top: 50%; margin-top: -2px; width: 4px; height: 4px; border-radius: 50%;
+  background: var(--bg); box-shadow: inset 0 1px 1px rgba(0,0,0,0.6);
+}
+body.light .book.script-tile { background: #fffefb; box-shadow: 0 0 0 1px rgba(0,0,0,0.08), 1px 2px 6px rgba(0,0,0,0.18); }
+/* the + of a shelf, right-clicked: a book or a script */
+
+/* --- the page --- */
+#editor-view.script-mode #paper-scroll { container-type: inline-size; overflow-x: hidden; }
+#paper.script {
+  font-size: min(calc(var(--page-w) * var(--page-zoom, 1) / 51), calc((100cqw - 40px) / 51));
+  width: 51em; max-width: none;
+}
+#paper.script #chapters {
+  background: var(--paper); color: var(--ink);
+  box-shadow: 0 4px 30px rgba(0,0,0,0.5);
+  padding: 6em 5.7em calc((var(--sp-last, 54) + 6) * 1em) 9em;
+  margin-bottom: 44px;
+}
+body.night #paper.script #chapters { box-shadow: 0 4px 30px rgba(0,0,0,0.7); }
+#paper.script .chapter.sheet {
+  background: none; box-shadow: none; border: none; padding: 0; margin: 0; min-height: 0;
+}
+#paper.script .chapter-head, #paper.script .toc-list { display: none; }
+/* a second chapter in a script is another device's copy, kept when both
+   sides changed (see refreshFromDisk): it says so, faintly; Backspace at
+   its start joins it to the script above */
+#paper.script .chapter + .chapter .chapter-head {
+  display: block; margin: 2em 0 1em; font-family: var(--sp-font); font-size: 0.85em; letter-spacing: 0.1em;
+  color: color-mix(in srgb, var(--ink) 50%, var(--paper));
+}
+
+/* the lines: each element where it prints. Widths carry half a letter of
+   room, so a full 60-letter line never wraps a letter early. */
+.sp-geom {
+  font-family: var(--sp-font); font-size: 1em; line-height: 1em; min-height: 1em;
+  --ind: 0em;
+}
+#paper.script .chapter-body.sp-geom { font-size: 1em; line-height: 1em; }
+.sp-geom > p {
+  margin: 1em 0 0; text-indent: 0 !important; width: 36.3em;
+  white-space: pre-wrap; overflow-wrap: anywhere; position: relative;
+}
+.sp-geom > p:first-child { margin-top: 0; }
+.chapter + .chapter .sp-geom > p:first-child { margin-top: 1em; }
+.sp-geom > p.sp-dialogue, .sp-geom > p.sp-paren,
+.chapter + .chapter .sp-geom > p.sp-dialogue:first-child, .chapter + .chapter .sp-geom > p.sp-paren:first-child { margin-top: 0; }
+.sp-geom > p.sp-heading, .sp-geom > p.sp-character, .sp-geom > p.sp-transition, .sp-geom > p.sp-shot { text-transform: uppercase; }
+/* scene headings stand out as you write, and print the same way */
+.sp-geom > p.sp-heading, .sp-narrow > p.sp-heading,
+.sp-geom > p.sp-shot, .sp-narrow > p.sp-shot { font-weight: bold; }
+/* …and underlined too, for the studios that want it (Format menu) */
+#paper.sp-uline .sp-geom > p.sp-heading, #paper.sp-uline .sp-narrow > p.sp-heading { text-decoration: underline; }
+/* two blank lines above a scene heading, and a shot, which is a heading
+   without INT./EXT. (SP_BEFORE in app.js) */
+.sp-geom > p.sp-heading:not(:first-child), .sp-geom > p.sp-shot:not(:first-child) { margin-top: 2em; }
+.sp-geom > p.sp-character { margin-left: 13.2em; width: 23.1em; --ind: 13.2em; }
+.sp-geom > p.sp-paren { margin-left: 9.6em; width: 15.3em; --ind: 9.6em; }
+.sp-geom > p.sp-dialogue { margin-left: 6em; width: 21.3em; --ind: 6em; }
+.sp-geom > p.sp-transition { text-align: right; }
+
+/* a new page: the rest of the last page, its foot, the gap, the next page's
+   head with its number (page one has none) */
+.sp-geom > p[data-pg] { margin-top: calc((var(--fill, 0) + 12) * 1em + var(--sp-gap)) !important; }
+.sp-geom > p[data-pg]::before {
+  content: attr(data-pg) '.';
+  position: absolute; z-index: 1; pointer-events: none;
+  left: calc(-9em - var(--ind) - 40px); width: calc(51em + 80px);
+  top: calc(-6em - var(--sp-gap)); height: calc(6em + var(--sp-gap));
+  box-sizing: border-box; padding: calc(var(--sp-gap) + 2.5em) calc(5.7em + 40px) 0 0;
+  text-align: right; text-transform: none; font-weight: 400; font-style: normal; text-decoration: none;
+  color: var(--ink);
+  /* the room's color across the gap; the pages' edges shaded on the paper's width only */
+  background:
+    linear-gradient(to bottom, rgba(0,0,0,0.22), transparent 10px, transparent calc(var(--sp-gap) - 10px), rgba(0,0,0,0.22) var(--sp-gap), transparent var(--sp-gap)) 40px 0 / calc(100% - 80px) 100% no-repeat,
+    linear-gradient(to bottom, var(--bg) var(--sp-gap), transparent var(--sp-gap)) 0 0 / 100% 100% no-repeat;
+}
+/* (CONT'D) when a voice comes back after action, and the gray suggestion
+   at the caret. Neither is typed or saved: the exports write CONT'D out. */
+.sp-geom > p[data-contd]::after, .sp-narrow > p[data-contd]::after {
+  content: " (CONT'D)"; color: color-mix(in srgb, var(--ink) 55%, var(--paper));
+}
+.sp-geom > p[data-ghost]::after, .sp-narrow > p[data-ghost]::after {
+  content: attr(data-ghost); color: color-mix(in srgb, var(--ink) 36%, var(--paper));
+}
+.sp-geom > p[data-ghost-empty]::after, .sp-narrow > p[data-ghost-empty]::after { position: absolute; left: 0; top: 0; }
+
+/* the measuring room: lines laid out as they print, out of sight */
+.sp-measure {
+  position: fixed; left: -20000px; top: 0; width: 51em; font-size: 20px;
+  visibility: hidden; pointer-events: none; contain: layout style;
+}
+
+/* --- the title page, a sheet of its own --- */
+#paper.script #title-page {
+  display: block; position: relative; width: 51em; height: 66em; min-height: 0;
+  padding: 0; box-sizing: border-box; margin-bottom: 44px;
+  font-family: var(--sp-font); font-size: 1em; line-height: 1em; text-align: center;
+}
+#paper.script #title-page > [contenteditable] {
+  position: absolute; left: 9em; width: 36em; margin: 0;
+  font: inherit; line-height: 1em; letter-spacing: 0; color: var(--ink); min-height: 1em; outline: none;
+}
+#paper.script #tp-title { top: 21em; text-transform: uppercase; font-weight: 400; }
+#paper.script #tp-subtitle { display: none; }
+#paper.script #tp-credit { top: 24em; }
+#paper.script #tp-author { top: 26em; text-transform: none; }
+#paper.script #title-page > #tp-contact { top: auto; bottom: 6em; width: 21em; text-align: left; white-space: pre-wrap; }
+#paper.script #title-page > #tp-draft { top: auto; bottom: 6em; left: auto; right: 6em; width: 15em; text-align: right; white-space: pre-wrap; }
+#paper.script #title-page [data-ph]:empty::before { font-style: normal; }
+
+/* --- on a phone: the lines reflow to the screen; a page break is a rule
+   with the page number (the pages themselves are still counted as they print) --- */
+#paper.script.narrow { font-size: 15px; width: 100%; }
+#paper.script.narrow #chapters { padding: 28px 18px 60px; box-shadow: none; }
+.sp-narrow { font-family: var(--sp-font); font-size: 1em; line-height: 1.3; --ind: 0em; }
+#paper.script .chapter-body.sp-narrow { font-size: 1em; line-height: 1.3; }
+.sp-narrow > p { margin: 1.3em 0 0; text-indent: 0 !important; white-space: pre-wrap; overflow-wrap: anywhere; position: relative; }
+.sp-narrow > p:first-child { margin-top: 0; }
+.sp-narrow > p.sp-dialogue, .sp-narrow > p.sp-paren { margin-top: 0; }
+.sp-narrow > p.sp-heading:not(:first-child), .sp-narrow > p.sp-shot:not(:first-child) { margin-top: 2.6em; }
+.sp-narrow > p.sp-heading, .sp-narrow > p.sp-character, .sp-narrow > p.sp-transition, .sp-narrow > p.sp-shot { text-transform: uppercase; }
+.sp-narrow > p.sp-character { margin-left: 6.5em; --ind: 6.5em; }
+.sp-narrow > p.sp-paren { margin-left: 4.5em; margin-right: 3em; --ind: 4.5em; }
+.sp-narrow > p.sp-dialogue { margin-left: 2.5em; margin-right: 2em; --ind: 2.5em; }
+.sp-narrow > p.sp-transition { text-align: right; }
+.sp-narrow > p[data-pg] { margin-top: 2.6em !important; }
+.sp-narrow > p[data-pg]::before {
+  content: attr(data-pg) '.';
+  position: absolute; pointer-events: none;
+  left: calc(-18px - var(--ind)); width: var(--sp-fullw, 100vw); top: -1.9em;
+  box-sizing: border-box; padding: 2px 18px 0 0; border-top: 1px dashed color-mix(in srgb, var(--ink) 25%, var(--paper));
+  text-align: right; line-height: 1.2; text-transform: none; font-weight: 400; font-style: normal;
+  color: color-mix(in srgb, var(--ink) 50%, var(--paper));
+}
+#paper.script.narrow #title-page {
+  width: auto; height: auto; min-height: 60vh; padding: 48px 18px; display: flex; flex-direction: column;
+  justify-content: center; gap: 1.3em; line-height: 1.3;
+}
+#paper.script.narrow #title-page > [contenteditable] { position: static; width: auto; }
+#paper.script.narrow #title-page > #tp-contact, #paper.script.narrow #title-page > #tp-draft { width: auto; margin-top: 2em; }
+
+/* --- the pane: the elements on top, the scenes beneath --- */
+#nav-pane.script .nav-item.sp-el { padding-top: 7px; padding-bottom: 7px; }
+#nav-pane.script .nav-item.sp-el .n-row { cursor: pointer; }
+#nav-pane.script .nav-item.sp-el.current .n-words { color: var(--accent); }
+#nav-pane.script .sp-scenes-head {
+  padding: 22px 16px 10px 18px; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted);
+}
+#nav-pane.script .nav-item.sp-scene .n-label {
+  font-family: var(--sp-font); font-size: 12px; letter-spacing: 0.2px; text-transform: uppercase; max-width: 160px;
+}
+#nav-pane.script .nav-item.sp-scene .n-num { color: #5d5d5d; font-size: 11px; min-width: 18px; flex-shrink: 0; }
+#nav-pane.script .nav-item.sp-scene .n-row { justify-content: flex-start; gap: 8px; }
+#nav-pane.script .nav-item.sp-scene .n-words { margin-left: auto; }
+body.light #nav-pane.script .nav-item.sp-scene .n-num { color: #8f8a80; }
+
+/* a script's title, set bold, underlined or italic as a whole (⌘B ⌘U ⌘I) */
+#paper.script #tp-title.tp-b { font-weight: bold; }
+#paper.script #tp-title.tp-u { text-decoration: underline; }
+#paper.script #tp-title.tp-i { font-style: italic; }
+/* a loose card that holds writing set aside from the manuscript: how many words */
+.ob-held { margin-top: 6px; font-size: 11px; letter-spacing: 0.04em; color: var(--muted); }
+
+/* cards picked together (⌘-click, Shift-click, or a sweep across the board) */
+/* red, not the accent's gold: gold on a cream card can't be told from no
+   border at all (#351) */
+.ob-cell.ob-sel .ob-card { box-shadow: 0 0 0 3px var(--red), 0 2px 10px rgba(0, 0, 0, 0.25); }
+.ob-lasso { position: fixed; z-index: 50; border: 1px solid var(--red); background: color-mix(in srgb, var(--red) 10%, transparent); border-radius: 3px; pointer-events: none; }
+.ob-lassoing, .ob-lassoing * { user-select: none !important; -webkit-user-select: none !important; }
+
+/* a scene's card note on its empty first line, until the scene is written (#339) */
+.sp-geom > p[data-scene-note]:not([data-ghost])::after, .sp-narrow > p[data-scene-note]:not([data-ghost])::after {
+  content: attr(data-scene-note); position: absolute; left: 0; top: 0; right: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; /* one line: it takes no room on the page */
+  font-style: italic; color: color-mix(in srgb, var(--ink) 36%, var(--paper)); pointer-events: none;
+}
+.sp-geom > p[data-scene-note], .sp-narrow > p[data-scene-note] { position: relative; }
+
+/* the shelf's own size (#336), kept on this device */
+#shelves { zoom: var(--shelf-zoom, 1); }
+
+/* the note being worked on, plain to see among the others (#351): red, like
+   the picked cards on the Outline */
+.sticky.current { box-shadow: 0 0 0 2px var(--red); }
+body.light .sticky.current { box-shadow: 0 0 0 2px var(--red); }
+
+/* the open book's title beside the window's buttons (macOS, where the system's
+   own bar is hidden behind the page; elsewhere the system's bar shows it) */
+body.mac-bar #dragstrip {
+  padding-left: 84px; line-height: 28px; font-size: 12px; color: #6a6a6a;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 84px;
+  pointer-events: auto; user-select: none;
+}
+body.light.mac-bar #dragstrip { color: #8a857c; }
+body.full-screen #dragstrip, body.focus-mode #dragstrip { color: transparent; }
+
+/* ---------- snapshots (SNAPSHOTS in app.js): the right-hand pane on the Darlings tab ---------- */
+.side-title-snaps, #snap-list { display: none; }
+#editor-view.darlings-tab .side-title-notes, #editor-view.darlings-tab #sticky-list { display: none; }
+#editor-view.darlings-tab .side-title-snaps { display: inline; }
+#editor-view.darlings-tab #snap-list { display: block; }
+/* the pane stays open there, so the page moves over to clear it */
+#editor-view.darlings-tab #paper-scroll { left: calc(50% - 125px * var(--ui-zoom)); }
+#editor-view.darlings-tab.nav-pinned #paper-scroll { left: calc(50% - 1px * var(--ui-zoom)); }
+#snap-list { padding-bottom: 12px; }
+.snap-item {
+  display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left;
+  background: none; border: none; border-left: 2px solid transparent; padding: 8px 14px; color: #ccc; min-height: 44px;
+}
+.snap-item:hover { background: rgba(255,255,255,0.04); }
+.snap-item.on { background: rgba(255,255,255,0.07); border-left-color: var(--red); }
+.snap-item:focus-visible { outline: 1px solid #666; outline-offset: -1px; }
+.snap-dot { flex: none; width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; box-sizing: border-box; border: 1.5px solid var(--muted); }
+.snap-item.snap-k .snap-dot { background: var(--red); border-color: var(--red); }
+.snap-item.snap-darlings .snap-dot { border-radius: 2px; background: var(--accent); border-color: var(--accent); }
+.snap-line { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.snap-t { font-size: 13px; color: #eee; }
+.snap-s { font-size: 11px; color: var(--muted); }
+.snap-group { padding: 12px 16px 4px; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #666; }
+.snap-empty { padding: 10px 16px; font-size: 12px; line-height: 1.5; color: #777; }
+.snap-chapters { display: flex; flex-direction: column; padding: 0 0 6px 36px; }
+.snap-ch { background: none; border: none; text-align: left; font-size: 12px; color: #b9b4aa; padding: 4px 14px 4px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.snap-ch:hover { color: #fff; text-decoration: underline; }
+body.light .snap-item { color: #3a362f; }
+body.light .snap-item:hover { background: rgba(0,0,0,0.04); }
+body.light .snap-item.on { background: rgba(0,0,0,0.06); }
+body.light .snap-t { color: #1c1a17; }
+body.light .snap-group, body.light .snap-empty { color: #857f73; }
+body.light .snap-ch { color: #5a554c; }
+body.light .snap-ch:hover { color: #1c1a17; }
+/* the book as it was, on the Darlings page */
+#snap-view { font-family: var(--body-font); }
+.snap-band {
+  position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px;
+  margin: 0 -8px 28px; padding: 12px 8px; background: var(--paper); border-bottom: 1px solid color-mix(in srgb, var(--ink) 14%, var(--paper));
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+}
+.snap-band-what { display: flex; flex-direction: column; gap: 2px; }
+.snap-band-when { font-size: 15px; color: var(--ink); }
+.snap-band-sub { font-size: 12px; color: color-mix(in srgb, var(--ink) 55%, var(--paper)); }
+.snap-band-do { display: flex; gap: 8px; }
+.snap-band button, .snap-one {
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; font-size: 12px;
+  height: 30px; padding: 0 12px; border-radius: 6px; background: none;
+  color: var(--ink); border: 1px solid color-mix(in srgb, var(--ink) 25%, var(--paper));
+}
+.snap-band button:hover, .snap-one:hover { border-color: var(--ink); }
+.snap-band .snap-all { background: var(--red); border-color: var(--red); color: #fff; }
+.snap-band .snap-all:hover { background: #a93226; }
+.snap-band .snap-all:disabled { opacity: 0.35; cursor: default; }
+.snap-chapter { margin-bottom: 40px; scroll-margin-top: 84px; }
+.snap-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin-bottom: 16px; padding-bottom: 6px; border-bottom: 1px solid color-mix(in srgb, var(--ink) 10%, var(--paper)); }
+.snap-head h3 { font-weight: normal; font-size: 18px; color: var(--ink); margin-right: auto; }
+.snap-tag { font: 11px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; letter-spacing: 0.04em; color: var(--red); }
+.snap-chapter.same .snap-tag { color: color-mix(in srgb, var(--ink) 45%, var(--paper)); }
+.snap-chapter.same .snap-body { opacity: 0.55; }
+.snap-body { user-select: text; cursor: text; }
+.snap-body p.snap-gone { background: rgba(192, 57, 43, 0.14); box-shadow: -6px 0 0 rgba(192, 57, 43, 0.14), 6px 0 0 rgba(192, 57, 43, 0.14); }
+::highlight(neo-snap-gone) { background-color: rgba(192, 57, 43, 0.24); }
+
+/* the Outline's cards for where the caret is, atop the right-hand pane (#340) */
+#side-cards { display: flex; flex-direction: column; gap: 10px; padding: 0 12px; }
+#side-cards:not(:empty) { margin-bottom: 22px; }
+#editor-view.outline-tab #side-cards, #editor-view.darlings-tab #side-cards { display: none; }
+.side-card { background: #2a2a26; border: 1px solid #3a3934; border-radius: 6px; padding: 10px 12px; }
+.side-card.current { box-shadow: 0 0 0 2px var(--red); border-color: transparent; }
+.side-cards-title { font-size: 12px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); padding: 0 4px; }
+.side-card-head { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #bdb8ad; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-card-section .side-card-head { font-weight: 500; color: #8f8a80; }
+.side-card-head { cursor: pointer; border-radius: 3px; }
+.side-card-head:hover, .side-card-head:focus-visible { color: #ece7dc; }
+.side-card-head:focus-visible { outline: 1px solid #6b675f; outline-offset: 2px; }
+.side-card textarea {
+  width: 100%; background: none; border: none; outline: none; resize: none; overflow: hidden;
+  color: #ddd; font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; padding: 0;
+}
+.side-card textarea::placeholder { color: #6b675f; font-style: italic; }
+body.light .side-card { background: #fbf5e3; border-color: #e6dfcc; }
+body.light .side-card-head { color: #5f5a50; }
+body.light .side-card-head:hover, body.light .side-card-head:focus-visible { color: #1f1d1a; }
+body.light .side-card textarea { color: #2b2926; }
+body.light .side-card textarea::placeholder { color: #a39d90; }
+
+/* ---------- the Notes tab (NOTES PAGES in app.js): a page for the book and one per chapter ---------- */
+/* the left pane turns the pages, the right one shows what the manuscript knows about the chapter */
+.nav-title-notes, #notes-nav, .side-title-chnotes, #notes-side { display: none; }
+#editor-view.notes-tab .nav-title-chapters, #editor-view.notes-tab #nav-list, #editor-view.notes-tab #nav-add { display: none; }
+#editor-view.notes-tab .nav-title-notes { display: inline; }
+#editor-view.notes-tab #notes-nav { display: block; }
+#editor-view.notes-tab .side-title-notes, #editor-view.notes-tab #sticky-list, #editor-view.notes-tab #side-cards { display: none; }
+#editor-view.notes-tab .side-title-chnotes { display: inline; }
+#editor-view.notes-tab #notes-side { display: block; }
+.notes-item .n-row { cursor: pointer; }
+.notes-item:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+.notes-item.notes-book .n-label { font-weight: 600; }
+.notes-item .nav-note:empty::before { content: attr(data-ph); }
+.notes-here {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+  display: inline-block; flex-shrink: 0; margin: 0 auto 0 8px;
+}
+.notes-item .n-row > .n-label + .notes-here + span { margin-left: 8px; }
+.notes-sep { height: 1px; background: #2c2c2c; margin: 6px 18px; }
+.notes-part {
+  padding: 14px 18px 4px; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5d5d5d;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ns-label {
+  display: flex; justify-content: space-between; padding: 10px 18px 6px;
+  font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #6a6a6a;
+}
+.ns-empty { padding: 0 18px 6px; font-size: 12px; color: #555; font-style: italic; }
+.ns-card { cursor: default; }
+.ns-card.ns-darling { font-family: var(--body-font); font-size: 14px; border-left-color: #6a6a6a; }
+.ns-card .ns-text { white-space: pre-wrap; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; overflow: hidden; }
+.ns-card .s-actions { margin-top: 4px; }
+.ns-outline { outline: none; min-height: 18px; cursor: text; }
+.ns-outline:empty::before { content: attr(data-ph); color: #666; font-style: italic; }
+/* the page: a chapter's names the chapter, with the way back up to the book's */
+#notes-up {
+  display: block; margin: -40px auto 22px; background: none; border: none; padding: 2px 6px;
+  font: 12px/1.4 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; letter-spacing: 1px;
+  color: var(--muted); cursor: pointer;
+}
+#notes-up:hover, #notes-up:focus-visible { color: var(--accent); }
+#editor-view:not(.notes-tab) #notes-up, #editor-view:not(.notes-tab) #notes-outline { display: none; }
+#aux-paper.notes-chapter #aux-title { margin-bottom: 18px; }
+#notes-outline {
+  max-width: 34em; margin: 0 auto 40px; text-align: center; color: #8a8a8a;
+  font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+}
+#notes-outline b { font-weight: 500; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; margin-right: 8px; }
+#aux-editor[data-ph]:not([data-ph=""]):empty::before { content: attr(data-ph); }
+body.light .notes-sep { background: #dedad2; }
+body.light .notes-part, body.light .ns-label { color: #8f8a80; }
+body.light .ns-empty, body.light .ns-outline:empty::before { color: #a39d92; }
+body.light #notes-outline { color: #6f6b63; }
+
+/* ---------- footnotes (FOOTNOTES in app.js) ---------- */
+/* the number is the page's own count, one series through the book (as the
+   chapter lists and every export number them), never saved */
+#chapters { counter-reset: neo-fn; }
+.chapter-body .fn { counter-increment: neo-fn; cursor: pointer; }
+.chapter-body .fn::after {
+  content: counter(neo-fn); color: var(--accent);
+  font: 600 0.62em/0 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  vertical-align: super; padding: 0 1px 0 0.5px; font-style: normal;
+}
+.chapter-body .fn:hover::after { text-decoration: underline; }
+.chapter-body p[data-fnopen] { margin-bottom: var(--fn-h, 3em); }
+.fn-box {
+  position: absolute; z-index: 3; box-sizing: border-box; display: flex; gap: 10px; align-items: baseline;
+  padding: 8px 12px; border-left: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, var(--paper));
+  font-family: var(--body-font); line-height: 1.5; color: var(--ink);
+  font-size: calc(var(--editor-size, 17px) * 0.82 * var(--page-zoom, 1));
+}
+.fn-box .fn-num { color: var(--accent); font: 600 11px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
+.fn-box .fn-text { flex: 1; min-width: 0; outline: none; white-space: pre-wrap; }
+.fn-box .fn-text:empty::before { content: attr(data-ph); color: color-mix(in srgb, var(--ink) 35%, var(--paper)); font-style: italic; }
+.fn-box .fn-hint {
+  flex: none; font: 10px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  color: color-mix(in srgb, var(--ink) 40%, var(--paper));
+}
+/* a chapter's notes under its last line, the way a book sets them */
+.fn-list {
+  margin: 2.4em 0 0; padding-top: 0.8em; position: relative;
+  font-family: var(--body-font); line-height: 1.5; color: var(--ink);
+  font-size: calc(var(--editor-size, 17px) * 0.8 * var(--page-zoom, 1));
+}
+.fn-list::before {
+  content: ''; position: absolute; top: 0; left: 0; width: 30%;
+  border-top: 1px solid color-mix(in srgb, var(--ink) 25%, var(--paper));
+}
+.fn-row { padding: 2px 0; cursor: pointer; border-radius: 3px; outline: none; }
+.fn-row:hover, .fn-row:focus-visible { background: color-mix(in srgb, var(--accent) 9%, var(--paper)); }
+.fn-row .fn-n { color: var(--accent); font: 600 0.75em -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; margin-right: 8px; }
+
+/* Korean interface. Hangul breaks between any two letters unless told to
+   keep words whole, and the wide tracking of the small-caps labels pulls a
+   word apart into single syllables. Both apply to NEO's own labels only:
+   the page, the title page and the covers keep the book's design. Hangul
+   faces have no italic, and a slanted one is only the upright letters
+   sheared, so Hangul stays upright everywhere, the page included; Latin
+   faces keep their italics. */
+html:lang(ko) body { word-break: keep-all; overflow-wrap: break-word; font-synthesis-style: none; }
+html:lang(ko) #paper, html:lang(ko) .book { word-break: normal; }
+html:lang(ko) :is(#aux-paper h2, .pen-slot, .shelf-label, .shelf-bound-mark, .pt-label, .ps-name, .ps-label,
+  .ol-part-name, #outline-views button, .ob-part, .ob-mark.ob-word, .ob-scene .ob-foot, .ob-held,
+  #nav-head, .nav-item .n-label, #nav-pane.script .sp-scenes-head, .pop-menu .pm-title,
+  #side-head, .sticky .s-ch, .stats-nums .lbl, .ms-modal legend, .snap-group, .snap-tag,
+  .side-cards-title, .side-card-head, .notes-part, .ns-label, #notes-up, #notes-outline b) {
+  letter-spacing: 0.04em;
+}

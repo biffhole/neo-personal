@@ -1,10 +1,15 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('neo', {
+  platform: process.platform,
+  // macOS: the system dictionary panel for the selected word (#179)
+  lookUpText: () => ipcRenderer.invoke('app:lookUp'),
+
   readLibrary: () => ipcRenderer.invoke('library:read'),
   writeLibrary: (data) => ipcRenderer.invoke('library:write', data),
 
   createBook: (meta) => ipcRenderer.invoke('book:create', meta),
+  duplicateBook: (bookId, title) => ipcRenderer.invoke('book:duplicate', bookId, title),
   listBooks: () => ipcRenderer.invoke('library:listBooks'),
   readBookMeta: (bookId) => ipcRenderer.invoke('book:readMeta', bookId),
   writeBookMeta: (bookId, meta) => ipcRenderer.invoke('book:writeMeta', bookId, meta),
@@ -12,11 +17,15 @@ contextBridge.exposeInMainWorld('neo', {
 
   readChapter: (bookId, chId) => ipcRenderer.invoke('chapter:read', bookId, chId),
   chapterStamps: (bookId) => ipcRenderer.invoke('chapter:stamps', bookId),
-  writeChapter: (bookId, chId, html) => ipcRenderer.invoke('chapter:write', bookId, chId, html),
+  writeChapter: (bookId, chId, html, expected) => ipcRenderer.invoke('chapter:write', bookId, chId, html, expected),
   deleteChapter: (bookId, chId) => ipcRenderer.invoke('chapter:delete', bookId, chId),
 
   readAux: (bookId, name) => ipcRenderer.invoke('aux:read', bookId, name),
   writeAux: (bookId, name, html) => ipcRenderer.invoke('aux:write', bookId, name, html),
+  snapshotList: (bookId) => ipcRenderer.invoke('snapshot:list', bookId),
+  snapshotRead: (bookId, name, file) => ipcRenderer.invoke('snapshot:read', bookId, name, file),
+  snapshotWrite: (bookId, name, file, text) => ipcRenderer.invoke('snapshot:write', bookId, name, file, text),
+  snapshotRemove: (bookId, name) => ipcRenderer.invoke('snapshot:remove', bookId, name),
 
   readJSON: (bookId, name, fallback) => ipcRenderer.invoke('json:read', bookId, name, fallback),
   writeJSON: (bookId, name, data) => ipcRenderer.invoke('json:write', bookId, name, data),
@@ -24,7 +33,7 @@ contextBridge.exposeInMainWorld('neo', {
   exportSave: (payload) => ipcRenderer.invoke('export:save', payload),
   emailDraft: (payload) => ipcRenderer.invoke('email:draft', payload),
   logError: (msg) => ipcRenderer.invoke('log:error', msg),
-  importPick: () => ipcRenderer.invoke('import:pick'),
+  importPick: (opts) => ipcRenderer.invoke('import:pick', opts),
   libraryPath: () => ipcRenderer.invoke('library:path'),
   pickCover: () => ipcRenderer.invoke('cover:pick'),
   setCover: (bookId, srcPath) => ipcRenderer.invoke('cover:set', bookId, srcPath),
@@ -38,7 +47,6 @@ contextBridge.exposeInMainWorld('neo', {
   fullscreenEscape: () => ipcRenderer.invoke('fullscreen:escape'),
   fullscreenToggle: () => ipcRenderer.invoke('fullscreen:toggle'),
   checkForUpdate: () => ipcRenderer.invoke('update:check'),
-  downloadUpdate: () => ipcRenderer.invoke('update:download'),
   installUpdate: () => ipcRenderer.invoke('update:install'),
   spellCheckWords: (words) => ipcRenderer.invoke('spell:check', words),
   spellSuggest: (word) => ipcRenderer.invoke('spell:suggest', word),
@@ -48,12 +56,26 @@ contextBridge.exposeInMainWorld('neo', {
   openRelease: () => ipcRenderer.invoke('update:openRelease'),
 
   poetryState: (on) => ipcRenderer.send('poetry:state', on),
+  flushState: (on) => ipcRenderer.send('flush:state', on),
+  scriptState: (st) => ipcRenderer.send('script:state', st),
+  printPaperback: (job) => ipcRenderer.invoke('print:paperback', job),
+  printManuscript: (job) => ipcRenderer.invoke('print:manuscript', job), // File → Export → Manuscript Format… as a PDF
+  // sent (and waited for) as a script line is right-clicked, so the menu
+  // that opens next can offer Page Break Here
+  scriptContext: (st) => ipcRenderer.sendSync('script:context', st),
   typewriterState: (st) => ipcRenderer.send('typewriter:state', st),
+  nbspMarksState: (on) => ipcRenderer.send('nbspmarks:state', on),
+  pagesState: (st) => ipcRenderer.send('pages:state', st),
+  pageWidthState: (v) => ipcRenderer.send('pagewidth:state', v),
+  vimState: (on) => ipcRenderer.send('vim:state', on),
+  uiZoomState: (z) => ipcRenderer.send('uizoom:state', z),
   // interface language, fetched once before the page's scripts run
   i18n: ipcRenderer.sendSync('i18n:get'),
+  paper: ipcRenderer.sendSync('paper:get'), // 'Letter' or 'A4', from the computer's region
   reloadForLanguage: () => ipcRenderer.invoke('i18n:reload'),
 
   writingStyleState: (st) => ipcRenderer.send('style:state', st),
+  moreState: (on) => ipcRenderer.send('more:state', on),
   viewState: (st) => ipcRenderer.send('view:state', st),
   onMenu: (cb) => ipcRenderer.on('menu', (_e, msg) => cb(msg))
 });

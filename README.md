@@ -4,13 +4,13 @@ My own version of [NEO](https://github.com/hughhowey/neo), the writing app by Hu
 
 ## What's different here
 
-- **Text formatting.** Underline, strikethrough, headings, block quotes, and bulleted or numbered lists, on top of the bold and italic NEO already had. They're all in the Format menu with shortcuts, and Markdown works as you type. More on that under Formatting below.
-- **Paste keeps formatting.** Paste from Google Docs, Word or a web page and headings, lists, quotes, bold, italic, underline and strikethrough come along. Paste Markdown (from a notes app, a code editor, or a chatbot) and it gets turned into the same formatting instead of showing the asterisks and hashes.
+- **Paragraph styles.** Headings, subheadings, block quotes, and bulleted or numbered lists, on top of the bold, italic, underline and strikethrough NEO has. They're all in the Format menu with shortcuts, along with Clear Formatting, and Markdown works as you type (`# `, `## `, `> `, `- ` or `1. ` at the start of a line). More on that under Formatting below.
+- **Paste keeps formatting.** Paste from Google Docs, Word or a web page and headings, lists, quotes and section breaks come along, not just bold and italic. Paste Markdown (from a notes app, a code editor, or a chatbot) and it gets turned into the same formatting instead of showing the asterisks and hashes.
 - **Copying a chapter copies its heading.** Select from the top of a chapter (or just press Cmd+A in it) and copy, and "Chapter 3 — Title" comes along above the text. Edit → Copy Chapter Headings turns this off.
-- **Save cover as image.** Right-click a book on the shelf and pick Save cover as image… to get its cover as a full-size JPEG (1600×2560), title and author included, just like it looks on the shelf. If you gave the book your own cover image, you get that image back as it is.
-- **Zooming keeps your place.** Pinching, Ctrl+scrolling, the zoom buttons and the text size shortcuts no longer throw you to a different part of the chapter. Also sent to the original as [hughhowey/neo#132](https://github.com/hughhowey/neo/pull/132).
+- **Markdown stays on in simple NEO.** The original hides Markdown typing until you turn on File → Show More Features. Here it's on either way; Format → Markdown Emphasis turns it off.
 - **No automatic updates.** This version never checks for new releases or installs them, so an official NEO update can't replace it. The Check for Update menu item is gone too.
-- **Shelf fix.** After the NEO Pocket commit (285c081), the desktop app opened to an empty window with no shelf. That's fixed here, and the same fix is now in the original too ([hughhowey/neo#130](https://github.com/hughhowey/neo/pull/130)).
+
+Save cover as image, underline and strikethrough, and the zoom and shelf fixes (sent upstream as [hughhowey/neo#132](https://github.com/hughhowey/neo/pull/132) and [#130](https://github.com/hughhowey/neo/pull/130)) used to be on this list. The original NEO has all of them now, so this version uses its versions.
 
 It uses the same `~/Documents/NEO Library` folder as the original NEO, so your books show up in both. Just don't run the two at once.
 
@@ -52,6 +52,8 @@ There's a white page by default or a dark mode (which I now prefer!). Controls f
 
 One Enter: new paragraph. Two: a `***` section break. Three: a new chapter. The goal is to KEEP WRITING.
 
+Right-click the first chapter's heading to make it a prologue, or the last one's to make it an epilogue: they step out of the numbering, and everything renumbers.
+
 **Formatting** 
 
 Bold, italic, underline and strikethrough, plus headings, block quotes, and bulleted or numbered lists — all under **Format**, all with keyboard shortcuts. Markdown habits work as you type: `*italic*`, `**bold**`, `~~struck~~`, and at the start of a line `# `, `## `, `> `, `- ` or `1. `. Everything carries through to every export.
@@ -64,9 +66,9 @@ The writing advice is "kill your darlings" — but I say: *keep the bodies*. Dra
 
 Mid-flow and need a name, a fact, a date? ⌘⇧X drops a mark and a sticky note. The left panel shows a red dot on every chapter that you need to get back to. The right panel will list all these to-do items.
 
-**Outlining for plotters** 
+**Outlining with index cards** 
 
-Outline chapters and sections in the Outline tab; section notes appear in the manuscript as gray ghost paragraphs, ready to be overwritten. Pantsers can ignore all of it or learn to draw a freakin' map for the first time. Try it. You might like it!
+The Outline tab lays your book out as index cards, set like a page: they read left to right, line after line, so forty short chapters or a story of thirty scenes both fill the window. Each chapter starts at its big numeral, with its sections following on the same mat. Click a card and write a few lines on it. A section's note shows up in the manuscript as a gray ghost paragraph, and once you start writing, it rides one line below your words until you dismiss it. Drag a card to move it and the writing moves with it (⌘Z puts it back). Pantsers get cards too: every chapter and every *** section is already a card, showing its first line until you give it a note. Ideas without a home wait on loose cards in the right-hand panel. ⌘− shrinks the cards until a whole novel fits on one screen, and the old list is one click away. Pantsers can ignore all of it or learn to draw a freakin' map for the first time. Try it. You might like it!
 
 **Cover Art** 
 
@@ -76,9 +78,21 @@ Every book gets a cover! New books are dressed in a seeded abstract (six art sty
 
 Daily word goals, word sprints, and a NaNoWriMo-style progress chart. Needs more testing, but I think it works okay!
 
+**A shelf can become one book** 
+
+Right-click a shelf's name and choose **Bind into one book** for an omnibus, a trilogy, or a story collection. Hover over the bound shelf and the pages a published book carries show up faintly in their places: copyright, dedication, epigraph, prologue, epilogue, acknowledgments, about the author. A small + before each title starts a Part. Click a page and type it the way it will print; a prologue or epilogue opens in the editor like any story. The export is one EPUB, Word file, or PDF with a single cover and one table of contents, and chapters can number straight through the whole book. Unbind any time. Nothing is lost.
+
+**Screenplays, too!**
+
+A lot of you have asked for this feature, so here it is! Right-click the + on any shelf and choose **New Script**. Scripts sit on the same shelves as your books, on white card stock with two brass brads. Inside, the page is set the way it will print: Courier Prime, pages, page numbers, a proper title page.
+
+You never have to pick a formatting element. Start a line with INT. or EXT. and it's a scene heading. Type a name in capitals, hit Enter, and the next line is dialogue. Hit Enter twice after a speech and you're on the next speaker, with whoever is being answered already there in gray. Tab or Enter fills it in. ⌘1 through ⌘7 will let you pick an element yourself, the same keys Final Draft uses. The left panel lists your scenes and how long each one runs, in eighths of a page. Drag a scene to move it. (CONT'D) happens automatically. The Outline tab lays every scene out as an index card: its heading, its length, who's in it, and a note you can write on it. Drag the cards to restructure the script, or start a script as a stack of cards and write it from there.
+
+Export an industry-format PDF, or a Fountain or Final Draft (.fdx) file. Drop a .fountain or .fdx file on a shelf to import a script. Notes, Darlings, placeholders, sprints, and NEO Pocket all work the same as they do for books.
+
 **Exports** 
 
-EPUB 3 with a proper table of contents built to KDP's guidelines, Word .docx, PDF, HTML, markdown, and plain text. Email a timestamped PDF snapshot to yourself with a SHA-256 fingerprint of the text in the body. Might come in handy someday.
+EPUB 3 with a proper table of contents built to KDP's guidelines, Word .docx, PDF with page numbers and bookmarks, HTML, markdown, and plain text. Email a timestamped PDF snapshot to yourself with a SHA-256 fingerprint of the text in the body. Might come in handy someday.
 
 **Import** 
 
@@ -94,7 +108,7 @@ Everything lives in `~/Documents/NEO Library` — one folder per book, chapters 
 
 ## Languages
 
-NEO speaks English, French, Spanish, Portuguese, German, Italian, Dutch and Polish. Pick one under **View → Language**; on first launch NEO follows your system language when it has it. Adding a language is a single file, no programming needed: see [TRANSLATING.md](TRANSLATING.md).
+NEO speaks English, French, Spanish, Portuguese, German, Italian, Dutch, Polish, Romanian and Russian. Pick one under **View → Language**; on first launch NEO follows your system language when it has it. Adding a language is a single file, no programming needed: see [TRANSLATING.md](TRANSLATING.md).
 
 ## Building from source (for the eggheads):
 
@@ -109,7 +123,7 @@ npm start
 
 **View → Keyboard Shortcuts…** opens the shortcut reference. You can also press `Cmd+/` on macOS or `Ctrl+/` on Windows and Linux, or use **Help → NEO Shortcuts**.
 
-To build installers: `npm install electron-builder --save-dev`, then `npm run package` (macOS), `npm run package:win` (Windows), or `npm run package:all`. Output lands in `dist/`.
+To build installers: `npm install electron-builder --save-dev`, then `npm run package` (macOS, also `npm run package:mac`), `npm run package:win` (Windows), or `npm run package:all`. Output lands in `dist/`.
 
 The app is very simple: an Electron shell (`main.js`), a preload bridge (`preload.js`), and a renderer (`app.js` + `styles.css` + `index.html`). If you know JavaScript, you can change NEO. Have at it.
 
