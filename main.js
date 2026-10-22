@@ -2701,6 +2701,22 @@ ipcMain.on('features:state', (_e, list) => {
   featuresOff = next;
   try { buildMenu(); } catch (err) { logError('menu', err); }
 });
+// Discord Rich Presence (discord.js): the window reports the book, chapter
+// and session, or null on the shelf with the feature off. The application id
+// is the "NEO Enhanced" app in Discord's Developer Portal, whose name is the
+// one Discord shows; settings.json's `discordClientId` can point at another.
+const DISCORD_CLIENT_ID = '';
+const DISCORD_IMAGE = 'https://raw.githubusercontent.com/justsomerandomshit/NEO_Enhanced/main/assets/logo/icon.png';
+let presence = null;
+ipcMain.on('discord:activity', (_e, st) => {
+  if (!presence) {
+    const clientId = readSettings().discordClientId || DISCORD_CLIENT_ID;
+    if (!clientId || !/^\d{5,25}$/.test(String(clientId))) return;
+    presence = require('./discord').createPresence({ clientId, log: logError });
+  }
+  presence.set(st ? require('./discord').buildActivity(st, { largeImage: DISCORD_IMAGE }) : null);
+});
+app.on('will-quit', () => { if (presence) presence.stop(); });
 function featureOffNow(id) {
   if (!featuresOff) featuresOff = new Set(readJSON(LIBRARY_FILE, {}).featuresOff || []);
   return featuresOff.has(id);

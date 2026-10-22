@@ -213,6 +213,12 @@ let stickies = [];           // [{id, chapterId, text, resolved}]
 let darlings = [];           // [{id, html, text, chapterId, chapterLabel, date}]
 let currentTab = 'manuscript';
 let currentChapterId = null; // chapter the caret/scroll is in
+// Discord (DISCORD): when NEO opened; the book open now, since when, and
+// the words typed or cut since then (trackDailyWords adds them; text read
+// from disk never counts); what Discord was last sent
+const NEO_OPENED = Date.now();
+let discordSession = null;
+let discordSent = '';
 let wordMode = 'book';       // 'book' | 'chapter'
 let saveTimers = {};
 
@@ -559,6 +565,7 @@ function showWindowTitle() {
   document.title = title ? title + ' — NEO' : 'NEO';
   const strip = IS_MAC && !IS_POCKET && document.querySelector('#dragstrip'); // the desktop's page only
   if (strip) strip.textContent = title;
+  discordUpdate();
 }
 
 function toast(msg, ms = 4000) {
@@ -9056,6 +9063,7 @@ function switchTab(name) {
   }
   if (book && !notesPageOk(notesPage)) notesPage = 'book';
   currentTab = name;
+  discordUpdate();
   syncPaneLayout();
   sidePaneForTab(name);
   queueSideCards();
@@ -12521,6 +12529,8 @@ function trackDailyWords(total) {
   const was = book.dailyCounts[today];
   const seen = daySeen && daySeen.bookId === book.id ? daySeen.total : undefined;
   const now = nextDayCount(was, total, seen);
+  // the words typed (or cut) since the book was opened, for Discord
+  if (discordSession && discordSession.bookId === book.id && seen !== undefined) discordSession.words += total - seen;
   daySeen = { bookId: book.id, total };
   book.dailyCounts[today] = now;
   // a new day, or the writer's cut moving where it began, is saved now; the
@@ -12529,6 +12539,7 @@ function trackDailyWords(total) {
   if (sprint && sprint.bookId !== book.id) sprint = null; // a sprint belongs to the book it began in
   if (sprint && total < sprint.startCount) sprint.startCount = total;
   const wordsToday = Math.max(0, book.dailyCounts[today].end - book.dailyCounts[today].start);
+  discordUpdate();
   const gc = $('#goal-counter');
   if (sprint && !sprint.done) {
     const sprintWords = total - sprint.startCount;
@@ -18720,6 +18731,48 @@ $('#nav-list').addEventListener('keydown', (e) => {
 });
 
 /* ================================================================== */
+/*  DISCORD — Rich Presence                                            */
+/*  On the desktop, with Discord open, the writer's Discord profile    */
+/*  shows NEO Enhanced, the book, the chapter the caret is in (or the  */
+/*  tab), the time since the book was opened, and the words written    */
+/*  since. main.js passes it to discord.js, which talks to Discord's   */
+/*  own app on this computer. Customize NEO → Discord status turns it  */
+/*  off. Only what changed is sent, and Discord is sent it at most     */
+/*  every fifteen seconds.                                             */
+/* ================================================================== */
+
+function discordActivity() {
+  if (!library || !featureOn('discord')) return null;
+  if (!book) return { details: t('On the bookshelf'), since: NEO_OPENED };
+  const words = Math.max(0, discordSession ? discordSession.words : 0);
+  const wordsLine = t('{n} words this session', { n: words });
+  let where = '';
+  if (currentTab === 'outline') where = t('Outlining');
+  else if (currentTab === 'notes') where = t('Notes');
+  else if (currentTab === 'darlings') where = t('Darlings');
+  else if (isScript()) where = t('Screenplay');
+  else if (currentChapterId && book.chapterOrder.includes(currentChapterId)) where = chapterHeadingText(currentChapterId) || '';
+  if (where.length > 80) where = where.slice(0, 79) + '…';
+  return {
+    details: t('Writing {title}', { title: shownTitle(book.title || '') }),
+    state: where ? where + ' · ' + wordsLine : wordsLine,
+    since: discordSession ? discordSession.since : NEO_OPENED
+  };
+}
+function discordUpdate() {
+  if (!window.neo.discordActivity) return; // Pocket has no Discord
+  if (!book) discordSession = null;
+  else if (!discordSession || discordSession.bookId !== book.id) discordSession = { bookId: book.id, since: Date.now(), words: 0 };
+  const act = discordActivity();
+  const sig = JSON.stringify(act);
+  if (sig === discordSent) return;
+  discordSent = sig;
+  window.neo.discordActivity(act);
+}
+// the caret moving into another chapter, by any road
+setInterval(() => { if (!document.hidden) discordUpdate(); }, 10000);
+
+/* ================================================================== */
 /*  CUSTOMIZE NEO — View → Customize NEO…                              */
 /*  Any tab, pane or feature the writer doesn't use can go: its tab,   */
 /*  pane, menu items and keys step out of the way (library.featuresOff,*/
@@ -18757,7 +18810,8 @@ const FEATURES = [
     { id: 'email', label: tk('Email drafts'), desc: tk('Email Draft to Myself (⌘E) and its settings.') },
     { id: 'scripts', label: tk('Screenplays'), desc: tk('New Script on a shelf’s +, and importing Fountain and Final Draft files.') },
     { id: 'coverArt', label: tk('Painted covers'), desc: tk('Covers painted from your story, and File → Cover Art….') },
-    { id: 'binding', label: tk('Bound shelves'), desc: tk('Binding a shelf into one book. A shelf already bound stays bound.') }
+    { id: 'binding', label: tk('Bound shelves'), desc: tk('Binding a shelf into one book. A shelf already bound stays bound.') },
+    { id: 'discord', desktop: true, label: tk('Discord status'), desc: tk('While Discord is open, your profile shows the book, the chapter, how long you’ve been writing and the words written since you opened it.') }
   ] }
 ];
 const FEATURE_IDS = FEATURES.flatMap((g) => g.items.map((f) => f.id));
@@ -18789,6 +18843,7 @@ function applyFeatures() {
   if (book && !$('#editor-view').hidden && !featureOn(currentTab)) switchTab('manuscript');
   if (!featureOn('spellcheck') && spellOn) toggleSpellcheck();
   if (!featureOn('readAloud') && reading) stopReadAloud();
+  discordUpdate();
 }
 // a pane that's off makes no room beside the page, even when it was kept open
 function syncPaneLayout() {
@@ -18808,7 +18863,7 @@ async function customizeNeo() {
       <h2 style="font-size:17px">${escHtml(t('Customize NEO'))}</h2>
       <p class="cz-lead">${escHtml(t('Turn off what you don’t use. Its tab, panel, menu items and keys go away; nothing in your books is touched, and turning it back on brings it all back.'))}</p>
       <div class="cz-groups">${FEATURES.map((g) => `
-        <section class="cz-group"><h3>${escHtml(t(g.group))}</h3>${g.items.map((f) => `
+        <section class="cz-group"><h3>${escHtml(t(g.group))}</h3>${g.items.filter((f) => !(f.desktop && IS_POCKET)).map((f) => `
           <label class="cz-row"><input type="checkbox" data-id="${f.id}"${featureOn(f.id) ? ' checked' : ''}>
             <span class="cz-text"><strong>${escHtml(t(f.label))}</strong><span>${escHtml(t(f.desc))}</span></span></label>`).join('')}
         </section>`).join('')}

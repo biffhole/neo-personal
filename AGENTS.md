@@ -28,6 +28,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) before adding a feature. The product is 
 | `art.js` | Painted covers in the main process. OpenAI only. Title and author are never sent to the image model |
 | `i18n.js` | `t()` / `tk()`, shared by main and the window. English source text is the key |
 | `spell-worker.js` | Hunspell WASM, forked with `utilityProcess`. Messages: `load`, `check`, `suggest`, `add` |
+| `discord.js` | Discord Rich Presence over Discord's local socket (`discord-ipc-N`), no package. `createPresence` and `buildActivity`, used by `discord:activity` in `main.js` |
 | `backup-worker.js` | The day's backup zip, forked with `utilityProcess` by `dailyBackup` so a file that won't come off iCloud never holds the main process |
 | `spell-ro.js` | Romanian diacritics, used by the worker. Does not alter the manuscript |
 | `manuscript.js` | Standard manuscript format: the word count's rounding, the header's surname, the `.docx`'s parts and the PDF's page, from a model the window hands it. Plain JavaScript that also runs in Node (`window.NeoManuscript`, loaded by `index.html`) |
@@ -58,6 +59,10 @@ NEO opens simple. File → Show More Features (`library.moreFeatures`) brings ba
 View → Customize NEO… (CUSTOMIZE NEO in `app.js`) turns tabs, panels and features off: `library.featuresOff` holds the ids, `featureOn(id)` asks. Off hides the tab or pane (a `feature-off-<id>` class on the body, `styles.css`), stands its keys down, and drops its menu items (`feature: '<id>'` in `buildMenu()`, left out by `simpleTemplate` from the window's `features:state`). Markdown's switch is `library.markdownOff`, shown in the same panel. A new feature with its own tab, pane, menu item or key gets an entry in `FEATURES`. `npm run test:customize`.
 
 This version opens on View → Page → Automatic (`pageTheme: 'auto'`, the default; a library from before is set so once, `library.autoTheme`): a white page always, in Paper's dark room when the computer is in dark mode and Light's room otherwise (`pageThemeNow` in `app.js`, `roomColor` in `main.js`).
+
+## Discord status
+
+On the desktop, with Discord open, the writer's Discord profile shows NEO Enhanced, the book, the chapter the caret is in (or Outlining, Notes, Darlings), the time since the book was opened and the words typed since (DISCORD in `app.js`). The session's words add up in `trackDailyWords` from the same total − seen as the day's count, so text read from disk never counts. The window sends the activity on `discord:activity` only when it changed; `discord.js` sends Discord at most one update every 15 s (its limit is 5 in 20 s) and clears it on quit. It needs a Discord application id: `DISCORD_CLIENT_ID` in `main.js`, or `discordClientId` in `settings.json`; with neither, nothing runs. Customize NEO → Discord status (`discord`, desktop only) turns it off. Pocket has none. `scripts/discord.test.js`, `npm run test:discord`.
 
 ## Outline cards
 

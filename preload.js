@@ -79,5 +79,7 @@ contextBridge.exposeInMainWorld('neo', {
   moreState: (on) => ipcRenderer.send('more:state', on),
   featuresState: (list) => ipcRenderer.send('features:state', list),
   viewState: (st) => ipcRenderer.send('view:state', st),
+  // Discord Rich Presence: the book, chapter and session, or null for none
+  discordActivity: (st) => ipcRenderer.send('discord:activity', st),
   onMenu: (cb) => ipcRenderer.on('menu', (_e, msg) => cb(msg))
 });
