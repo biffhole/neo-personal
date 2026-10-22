@@ -206,7 +206,7 @@
       if (!(await checkAccess())) return { authorName: '', penNames: [], firstRunDone: false, shelves: [{ id: 'shelf-1', name: 'Works in Progress', bookIds: [] }] };
       await fetchCloud('library.json', 15000);
       return readJSONFile(p('library.json'), {
-        authorName: '', penNames: [], firstRunDone: false, pageTheme: 'light',
+        authorName: '', penNames: [], firstRunDone: false, pageTheme: 'auto',
         shelves: [{ id: 'shelf-1', name: 'Works in Progress', bookIds: [] }]
       });
     },

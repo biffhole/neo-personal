@@ -1,5 +1,6 @@
 // End-to-end tests for View → Customize NEO… (turning tabs, panels and
-// features off and on) and for this version's light page. NEO runs on a
+// features off and on) and for this version's Automatic page: white,
+// in a room that follows the computer's dark or light mode. NEO runs on a
 // throwaway library that starts dark, the way an older one would.
 // Run with `npm run test:customize`.
 
@@ -68,14 +69,20 @@ const set = async (id, on) => { await js(`setFeature('${id}', ${on}); writeLibra
 const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
 
-test('an older dark library opens light, page and all, once', async () => {
-  assert.equal(await js('library.pageTheme'), 'light');
-  assert.equal(await js(`document.body.classList.contains('light')`), true);
-  assert.equal(await js(`document.body.classList.contains('night')`), false);
-  // and a choice made after stays
-  await js(`library.pageTheme = 'night'; applyFonts()`);
-  assert.equal(await js('!!library.lightDefault'), true);
-  await js(`library.pageTheme = 'light'; applyFonts()`);
+test('an older dark library opens Automatic once: a white page, the room as the computer is set', async () => {
+  assert.equal(await js('library.pageTheme'), 'auto');
+  assert.equal(await js('!!library.autoTheme'), true);
+  assert.ok(menuLabels().includes('Automatic'));
+  const { nativeTheme } = require('electron');
+  for (const mode of ['dark', 'light']) {
+    nativeTheme.themeSource = mode; // the computer's appearance, as Electron reports it
+    await tick(500);
+    assert.equal(await js('pageThemeNow()'), mode === 'dark' ? 'paper' : 'light', mode);
+    assert.equal(await js(`document.body.classList.contains('night')`), false, mode + ': never the dark page');
+    assert.equal(await js(`document.body.classList.contains('light')`), mode === 'light', mode + ': the room follows');
+    assert.equal(await js(`getComputedStyle(document.querySelector('.sheet')).backgroundColor`), 'rgb(251, 250, 247)', mode + ': a white page');
+  }
+  nativeTheme.themeSource = 'system';
 });
 
 test('View → Customize NEO… opens the panel, and a box turns a feature off', async () => {
@@ -180,7 +187,7 @@ async function main() {
     while (!(win = BrowserWindow.getAllWindows()[0])) await tick(50);
     wc = win.webContents;
     win.setBounds({ width: 1200, height: 800 });
-    while (!(await js(`typeof library !== 'undefined' && !!library && !!library.lightDefault`).catch(() => false))) await tick(50);
+    while (!(await js(`typeof library !== 'undefined' && !!library && !!library.autoTheme`).catch(() => false))) await tick(50);
     await tick(300);
     await js(`(async () => {
       document.getElementById('firstrun').hidden = true;

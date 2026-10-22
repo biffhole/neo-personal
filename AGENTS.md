@@ -57,7 +57,7 @@ NEO opens simple. File → Show More Features (`library.moreFeatures`) brings ba
 
 View → Customize NEO… (CUSTOMIZE NEO in `app.js`) turns tabs, panels and features off: `library.featuresOff` holds the ids, `featureOn(id)` asks. Off hides the tab or pane (a `feature-off-<id>` class on the body, `styles.css`), stands its keys down, and drops its menu items (`feature: '<id>'` in `buildMenu()`, left out by `simpleTemplate` from the window's `features:state`). Markdown's switch is `library.markdownOff`, shown in the same panel. A new feature with its own tab, pane, menu item or key gets an entry in `FEATURES`. `npm run test:customize`.
 
-This version opens light (`pageTheme` defaults to `'light'`; a library from before is made light once, `library.lightDefault`).
+This version opens on View → Page → Automatic (`pageTheme: 'auto'`, the default; a library from before is set so once, `library.autoTheme`): a white page always, in Paper's dark room when the computer is in dark mode and Light's room otherwise (`pageThemeNow` in `app.js`, `roomColor` in `main.js`).
 
 ## Outline cards
 

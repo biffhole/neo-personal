@@ -365,7 +365,7 @@ function ensureLibrary() {
       authorName: '',
       penNames: [],
       firstRunDone: false,
-      pageTheme: 'light',
+      pageTheme: 'auto',
       shelves: [{ id: 'shelf-1', name: t('Works in Progress'), bookIds: [] }]
     };
     fs.writeFileSync(LIBRARY_FILE, JSON.stringify(seed, null, 2));
@@ -653,7 +653,7 @@ function readLibraryFile() {
       if (d.startsWith('book-') && fs.existsSync(path.join(LIBRARY_DIR, d, 'chapters'))) ids.push(d);
     }
   } catch { /* empty */ }
-  const seed = { authorName: '', penNames: [], firstRunDone: ids.length > 0, pageTheme: 'light',
+  const seed = { authorName: '', penNames: [], firstRunDone: ids.length > 0, pageTheme: 'auto',
     shelves: [{ id: 'shelf-1', name: t('Works in Progress'), bookIds: ids }] };
   logError('recovered', `library.json was lost; ${ids.length} books put back on one shelf`);
   try { writeJSON(LIBRARY_FILE, seed); } catch (err) { logError('recover write', err); }
@@ -2297,15 +2297,19 @@ let backupRunning = false;
 // ---------------------------------------------------------------------------
 // Window
 // The window's own color, seen for a moment before the page draws and at the
-// edges while it resizes: the room's color, dark or (View → Page → Light) light
-function roomColor(theme) { return theme === 'light' ? '#efede8' : '#191919'; }
+// edges while it resizes: the room's color, dark or (View → Page → Light) light.
+// Automatic (this version's default) is the computer's own: dark in dark mode.
+function roomColor(theme) {
+  const light = theme === 'light' || (theme === 'auto' && !require('electron').nativeTheme.shouldUseDarkColors);
+  return light ? '#efede8' : '#191919';
+}
 // (this computer's own page, kept in settings.json as the window reports
 // it; the library's, the last device's, until it has one)
 function libraryPageTheme() {
   const own = readSettings().pageTheme;
   if (own) return own;
-  // (light unless chosen otherwise: this version's default)
-  try { return isCloudOnly(LIBRARY_FILE) ? 'light' : JSON.parse(fs.readFileSync(LIBRARY_FILE, 'utf8')).pageTheme || 'light'; } catch { return 'light'; }
+  // (Automatic unless chosen otherwise: this version's default)
+  try { return isCloudOnly(LIBRARY_FILE) ? 'auto' : JSON.parse(fs.readFileSync(LIBRARY_FILE, 'utf8')).pageTheme || 'auto'; } catch { return 'auto'; }
 }
 
 // ---------------------------------------------------------------------------
@@ -2644,13 +2648,13 @@ ipcMain.on('uizoom:state', (_e, z) => {
 });
 // View and Format menu ticks: the focus level, the page, Brighter Interface, and the writing
 // format the page is using (body font, drop cap style, paragraph alignment).
-let viewState = { focus: 'off', pageTheme: 'light', uiBright: false, bodyFont: '', dropCap: 'literary', align: null };
+let viewState = { focus: 'off', pageTheme: 'auto', uiBright: false, bodyFont: '', dropCap: 'literary', align: null };
 let keptTheme = null;
 ipcMain.on('view:state', (e, st) => {
   st = st || {};
   const next = {
     focus: st.focus || 'off',
-    pageTheme: st.pageTheme || 'light',
+    pageTheme: st.pageTheme || 'auto',
     uiBright: !!st.uiBright,
     bodyFont: typeof st.bodyFont === 'string' ? st.bodyFont : '',
     dropCap: typeof st.dropCap === 'string' ? st.dropCap : 'literary',
@@ -3116,6 +3120,8 @@ function buildMenu() {
         {
           label: t('Page'),
           submenu: [
+            // a white page, in a room as dark or light as the computer is set
+            { label: t('Automatic'), type: 'radio', checked: viewState.pageTheme === 'auto', click: () => sendToWindow({ type: 'pageTheme', value: 'auto' }) },
             { label: t('Night'), type: 'radio', checked: viewState.pageTheme === 'night', click: () => sendToWindow({ type: 'pageTheme', value: 'night' }) },
             { label: t('Paper'), type: 'radio', checked: viewState.pageTheme === 'paper', click: () => sendToWindow({ type: 'pageTheme', value: 'paper' }) },
             // white paper in a light room: the whole app, shelf included

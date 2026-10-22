@@ -15194,7 +15194,7 @@ function reportViewState() {
   if (!window.neo.viewState || !library) return;
   const payload = {
     focus: focusLevel,
-    pageTheme: library.pageTheme || 'light',
+    pageTheme: library.pageTheme || 'auto',
     uiBright: document.body.classList.contains('bright'),
     bodyFont: (library.fonts && library.fonts.body) || '',
     dropCap: (library.fonts && library.fonts.dropcap) || 'literary',
@@ -15602,10 +15602,10 @@ function applyFonts() {
     document.documentElement.style.setProperty('--dropcap-font', DROPCAP_FONTS[f.dropcap]);
   }
   document.body.classList.toggle('no-dropcap', f.dropcap === 'none');
-  document.body.classList.toggle('night', library.pageTheme === 'night');
-  // Light: the paper page in a light room, the whole app with it (this
-  // version's default)
-  document.body.classList.toggle('light', (library.pageTheme || 'light') === 'light');
+  const theme = pageThemeNow();
+  document.body.classList.toggle('night', theme === 'night');
+  // Light: the paper page in a light room, the whole app with it
+  document.body.classList.toggle('light', theme === 'light');
   // the system's "Increase contrast" turns it on too, until the writer
   // chooses in the View menu
   applyBright();
@@ -15619,6 +15619,17 @@ function applyFonts() {
   applyPageZoom();
   queueSoftHyphenTicks(); // another face can wrap the same lines differently
 }
+
+// View → Page. Automatic (this version's default) is a white page always,
+// in a room that follows the computer: Paper's dark room in dark mode,
+// Light's in light mode, changing when the computer does.
+const DARK_SCHEME = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+function pageThemeNow() {
+  const theme = library.pageTheme || 'auto';
+  if (theme !== 'auto') return theme;
+  return DARK_SCHEME && DARK_SCHEME.matches ? 'paper' : 'light';
+}
+if (DARK_SCHEME) DARK_SCHEME.addEventListener('change', () => { if (library && (library.pageTheme || 'auto') === 'auto') applyFonts(); });
 
 // A built-in choice, or a font the writer picked from their own computer.
 // A library opened where that font is missing simply reads in Georgia.
@@ -18903,11 +18914,13 @@ async function setMoreFeatures(on) {
 }
 
 loadLibrary().then(async () => {
-  // This version opens light, page and all. A library that was dark before
-  // it is made light once; View → Page changes it back any time.
-  if (!library.lightDefault) {
-    library.lightDefault = true;
-    library.pageTheme = 'light';
+  // This version opens on a white page in a room that follows the computer
+  // (View → Page → Automatic). A library from before it is set so once;
+  // View → Page changes it back any time.
+  if (!library.autoTheme) {
+    library.autoTheme = true;
+    delete library.lightDefault;
+    library.pageTheme = 'auto';
     await writeLibrary(library);
     reportViewState();
   }
