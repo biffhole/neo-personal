@@ -738,7 +738,7 @@ body.focus-mode .sheet ::selection { color: #1c1c1c; }
 body.focus-mode.night .sheet ::selection { color: #d6d2c6; }
 /* the drop cap sits outside the highlight's reach; same selector as the cap
    itself so no other paragraph grows a ::first-letter */
-body.focus-mode:not(.no-dropcap) .chapter-body.focus-cap:not(.cap-off):not(.no-cap):not(.opens-dialogue) p[data-first]::first-letter { color: var(--ink); }
+body.focus-mode:not(.no-dropcap) .chapter-body.focus-cap:not(.no-cap):not(.opens-dialogue) p[data-first]::first-letter { color: var(--ink); }
 .sheet {
   background: var(--paper); color: var(--ink);
   padding: 70px var(--page-pad-x) 90px;
@@ -895,10 +895,11 @@ body.paged #paper:not(.script) #tp-author { font-size: calc(14px * var(--page-zo
 .chapter-body p[data-fmt="quote"] + p:not([data-fmt="quote"]),
 .chapter-body p:is([data-fmt="ul"], [data-fmt="ol"]) + p:not([data-fmt="ul"]):not([data-fmt="ol"]) { margin-top: 0.9em; }
 .chapter-body p[data-fmt="quote"] + p:not([data-fmt]), .chapter-body p:is([data-fmt="ul"], [data-fmt="ol"]) + p:not([data-fmt]) { text-indent: 0; }
-/* cap-off while the caret is in the first paragraph: the rule must stop
-   MATCHING entirely — a matching first-letter rule, even styled to nothing,
-   makes the engine split the text internally, which corrupts deletes */
-body:not(.no-dropcap) .chapter-body:not(.cap-off):not(.no-cap):not(.opens-dialogue) p[data-first]::first-letter {
+/* The drop cap stays while the writer types in the first paragraph. (It
+   used to step aside there: older Chromium split the text around a
+   ::first-letter and duplicated or lost letters on delete. Electron 43
+   doesn't; scripts/caret.e2e.js edits under the cap to keep it so.) */
+body:not(.no-dropcap) .chapter-body:not(.no-cap):not(.opens-dialogue) p[data-first]::first-letter {
   font-size: 3.4em; float: left; line-height: 0.8;
   padding: 4px 8px 0 0; font-family: var(--dropcap-font);
 }
