@@ -227,6 +227,38 @@ test('the exports carry the paragraph styles', async () => {
   assert.match(out.epub, /<ol>\n<li>first<\/li>\n<li>second<\/li>\n<\/ol>/);
 });
 
+test('Enter three times at the start of a heading starts a chapter there', async () => {
+  // a pasted chapter heading in the middle of a chapter, the caret before it
+  const chapters = await js(`document.querySelectorAll('.chapter-body').length`);
+  const last = chapters - 1;
+  await js(`(() => {
+    const body = ${BODY(last)};
+    body.innerHTML = '<p>The end of one chapter.</p><p data-fmt="h1"><b>Chapter 9</b></p><p>The plate was empty.</p>';
+    enterRun = 0; // (a click would)
+    body.focus();
+    const r = document.createRange();
+    r.setStart(body.children[1].firstChild.firstChild, 0);
+    r.collapse(true);
+    getSelection().removeAllRanges();
+    getSelection().addRange(r);
+  })()`);
+  await tick(200);
+  await key('Enter');
+  assert.deepEqual(await paraOf(last, 1), { fmt: '', text: '', html: '<br>' }, 'once: the heading moves down, a plain empty line above it');
+  assert.equal((await paraOf(last, 2)).fmt, 'h1');
+  await key('Enter');
+  assert.equal((await paraOf(last, 1)).text, '***', 'twice: a section break above it');
+  assert.equal((await paraOf(last, 2)).fmt, 'h1');
+  await key('Enter');
+  await tick(300);
+  assert.equal(await js(`document.querySelectorAll('.chapter-body').length`), chapters + 1, 'three times: a new chapter');
+  assert.equal(await js(`${BODY(last)}.textContent`), 'The end of one chapter.');
+  const head = await paraOf(last + 1, 0);
+  assert.equal(head.fmt, 'h1');
+  assert.equal(head.text, 'Chapter 9');
+  assert.equal((await paraOf(last + 1, 1)).text, 'The plate was empty.');
+});
+
 /* ---------- runner ---------- */
 
 async function main() {

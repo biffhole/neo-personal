@@ -4299,8 +4299,40 @@ function clearFormatting(at) {
 // Enter on an empty one steps back out into prose. After a heading, prose
 // resumes.
 function formattedEnter(e, body, chId, block) {
+  const fmt = block.dataset.fmt;
+  // With the caret at the start of a heading, Enter keeps the rhythm of any
+  // paragraph: once pushes the heading down, twice makes the empty line
+  // above it a *** break, three times starts the next chapter at the heading
+  // (a pasted "Chapter 9" is split off this way)
+  const sel = window.getSelection();
+  const r = sel.getRangeAt(0);
+  const headingStart = (fmt === 'h1' || fmt === 'h2') && isStory(chId) &&
+    block.textContent.trim() !== '' && flatOffset(block, r.startContainer, r.startOffset) === 0;
+  const prev = block.previousElementSibling;
+  if (headingStart && enterRun >= 2 && prev) {
+    e.preventDefault();
+    if (prev.classList.contains('scene-break')) {
+      snapshotStructure('chapter split');
+      const was = caretHeight();
+      prev.remove();
+      splitChapterAt(body, chId, block, sel, was);
+      return true;
+    }
+    if (prev.tagName === 'P' && !prev.dataset.fmt && prev.textContent.trim() === '' && !prev.querySelector('.ph-mark')) {
+      snapshotStructure('section break', { rejoin: true });
+      prev.removeAttribute('style');
+      prev.className = 'scene-break';
+      prev.textContent = '***';
+      placeCaret(block, 0);
+      syncChapter(body, chId);
+      resetNativeUndo();
+      if (!typewriterEnabled) revealCaret();
+      breakRun++;
+      return true;
+    }
+  }
   e.preventDefault();
-  enterRun = 0;
+  if (!headingStart) enterRun = 0;
   if (block.textContent.trim() === '') {
     snapshotStructure('paragraph style');
     setParaFormat(block, '');
@@ -4316,13 +4348,19 @@ function formattedEnter(e, body, chId, block) {
     restoreCaret(caret);
   }
   document.execCommand('insertParagraph'); // the engine copies data-fmt onto the new line
-  const fmt = block.dataset.fmt;
   if (fmt === 'h1' || fmt === 'h2') {
+    // the empty line Enter made is prose, the heading's words keep the
+    // style. At the start of a heading the engine may move the words to a
+    // new line or leave them and put the empty one before them.
     const cur = caretBlock(body);
-    if (cur && cur !== block) {
-      // Enter at the start of a heading pushes it down: the empty line above
-      // is the prose; otherwise the new line below is
-      (block.textContent.trim() === '' ? block : cur).removeAttribute('data-fmt');
+    let made = null;
+    if (block.textContent.trim() === '') made = block;
+    else if (cur && cur !== block) made = cur;
+    else if (block.previousElementSibling && block.previousElementSibling.textContent.trim() === '') made = block.previousElementSibling;
+    if (made && made.dataset.fmt) {
+      made.removeAttribute('data-fmt');
+      // (and the bold or italic the heading's words were wrapped in)
+      if (!made.textContent.trim()) made.innerHTML = '<br>';
     }
   }
   syncChapter(body, chId);
