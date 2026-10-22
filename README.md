@@ -45,7 +45,7 @@ All the credit for NEO goes to Hugh Howey. Most of this README is his, with a fe
 - **A white page, with the interface following your Mac.** View → Page → Automatic (the default) keeps the page white and sets everything around it dark in dark mode and light in light mode, switching when your Mac does. Night, Paper and Light are still there.
 - **Turn off what you don't use.** View → Customize NEO… lists every tab, panel and feature: the Notes, Outline and Darlings tabs, the chapters and notes panels, the counters, goals, zoom control, headings and lists, Markdown, flush and poetry paragraphs, placeholders, footnotes, spellcheck, read aloud, snapshots, email drafts, screenplays, painted covers, bound shelves and the Discord status. Untick one and its tab, panel, menu items and keys go away; tick it and it's back. Right-click a tab to hide just that tab. Nothing in your books is touched.
 - **Import from almost anything.** Besides .docx, .txt and .md: PDF, EPUB, OpenDocument (.odt), web pages (.html), RTF and old Word .doc files, and links: File → Import from a Link… takes a Google Doc (shared as "Anyone with the link"), a file on Google Drive or any web page. A Google Docs shortcut (.gdoc) from Drive for desktop works too. NEO finds the chapters and their titles, the book's title and author, and keeps bold, italic, headings inside chapters, lists and quotes. From a PDF it rebuilds the paragraphs and leaves out page numbers and running heads (a scanned PDF has no text to import).
-- **Discord status.** While Discord is open, your profile shows NEO Enhanced, the book you're writing, the chapter you're in, how long you've been at it and how many words you've written since you opened the book. Customize NEO → Discord status turns it off. See [Discord status](#discord-status) for the one-time setup.
+- **Discord status.** While Discord is open, your profile shows NEO Enhanced, the book you're writing, the chapter you're in, how long you've been at it and how many words you've written since you opened the book. Customize NEO → Discord status turns it off. See [Discord status](#discord-status) for details.
 - **No automatic updates.** This version never checks for new releases or installs them, so an official NEO update can't replace it. The Check for Update menu item is gone too.
 
 Save cover as image, underline and strikethrough, and the zoom and shelf fixes (sent upstream as [hughhowey/neo#132](https://github.com/hughhowey/neo/pull/132) and [#130](https://github.com/hughhowey/neo/pull/130)) used to be on this list. The original NEO has all of them now, so this version uses its versions.
@@ -156,11 +156,7 @@ The time counts from when you opened the book, and the words are only the ones y
 
 It talks to the Discord app on your computer directly, so there's no account to link and nothing is sent anywhere else. If Discord isn't running, nothing happens. To hide it, untick **Discord status** in **View → Customize NEO…**.
 
-**One-time setup.** Discord needs an application ID, which is what gives the status its name:
-
-1. Open the [Discord Developer Portal](https://discord.com/developers/applications), click **New Application** and name it `NEO Enhanced`.
-2. Copy the **Application ID** from its General Information page.
-3. Paste it into `DISCORD_CLIENT_ID` in `main.js` before you build, or add `"discordClientId": "<your ID>"` to NEO's `settings.json` (`~/Library/Application Support/NEO/settings.json` on a Mac) and restart NEO.
+It works out of the box. If you'd rather it show under your own Discord application, create one in the [Discord Developer Portal](https://discord.com/developers/applications) and put its Application ID in `DISCORD_CLIENT_ID` in `main.js`, or add `"discordClientId": "<your ID>"` to NEO's `settings.json` (`~/Library/Application Support/NEO/settings.json` on a Mac) and restart NEO.
 
 ## Your files
 

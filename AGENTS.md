@@ -62,7 +62,7 @@ This version opens on View → Page → Automatic (`pageTheme: 'auto'`, the defa
 
 ## Discord status
 
-On the desktop, with Discord open, the writer's Discord profile shows NEO Enhanced, the book, the chapter the caret is in (or Outlining, Notes, Darlings), the time since the book was opened and the words typed since (DISCORD in `app.js`). The session's words add up in `trackDailyWords` from the same total − seen as the day's count, so text read from disk never counts. The window sends the activity on `discord:activity` only when it changed; `discord.js` sends Discord at most one update every 15 s (its limit is 5 in 20 s) and clears it on quit. It needs a Discord application id: `DISCORD_CLIENT_ID` in `main.js`, or `discordClientId` in `settings.json`; with neither, nothing runs. Customize NEO → Discord status (`discord`, desktop only) turns it off. Pocket has none. `scripts/discord.test.js`, `npm run test:discord`.
+On the desktop, with Discord open, the writer's Discord profile shows NEO Enhanced, the book, the chapter the caret is in (or Outlining, Notes, Darlings), the time since the book was opened and the words typed since (DISCORD in `app.js`). The session's words add up in `trackDailyWords` from the same total − seen as the day's count, so text read from disk never counts. The window sends the activity on `discord:activity` only when it changed; `discord.js` sends Discord at most one update every 15 s (its limit is 5 in 20 s) and clears it on quit. The Discord application is "NEO Enhanced" (`DISCORD_CLIENT_ID` in `main.js`); `discordClientId` in `settings.json` overrides it. Customize NEO → Discord status (`discord`, desktop only) turns it off. Pocket has none. `scripts/discord.test.js`, `npm run test:discord`.
 
 ## Outline cards
 

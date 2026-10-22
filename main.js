@@ -2705,7 +2705,7 @@ ipcMain.on('features:state', (_e, list) => {
 // and session, or null on the shelf with the feature off. The application id
 // is the "NEO Enhanced" app in Discord's Developer Portal, whose name is the
 // one Discord shows; settings.json's `discordClientId` can point at another.
-const DISCORD_CLIENT_ID = '';
+const DISCORD_CLIENT_ID = '1562923499016953977';
 const DISCORD_IMAGE = 'https://raw.githubusercontent.com/justsomerandomshit/NEO_Enhanced/main/assets/logo/icon.png';
 let presence = null;
 ipcMain.on('discord:activity', (_e, st) => {
