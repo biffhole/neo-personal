@@ -2786,6 +2786,10 @@ function buildMenu() {
     {
       label: t('File'),
       submenu: [
+        // the shelf, from anywhere in a book (Esc does it too, when nothing
+        // else is open)
+        { label: t('Back to Bookshelf'), accelerator: 'CmdOrCtrl+Shift+B', enabled: bookOpenState, click: () => sendToWindow({ type: 'shelf' }) },
+        { type: 'separator' },
         {
           label: t('Export'),
           submenu: scriptState.on ? [

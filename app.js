@@ -15926,6 +15926,7 @@ function bookShortcutSections() {
       ...on('spellcheck', [[K('⌘;', 'Ctrl+;'), tk('Toggle spellcheck pass')]])
     ] },
     { title: tk('App & files'), rows: [
+      [[K('⌘⇧B', 'Ctrl+Shift+B'), 'Esc'], tk('Back to the bookshelf'), tk('Esc first closes the find bar or leaves full screen.')],
       [KHELP, tk('Keyboard shortcuts')],
       ...on('snapshots', [[K('⌘S', 'Ctrl+S'), tk('Take a snapshot of the book'), tk('NEO saves as you type; a snapshot keeps the book as it stands now. They’re on the Darlings tab.')]]),
       ...on('goals', [[K('⌘,', 'Ctrl+,'), tk('Goals and writing sprints')]]),
@@ -18428,6 +18429,7 @@ window.neo.onMenu(async (msg) => {
   if (msg.type === 'emailDraft' && featureOn('email')) doEmailDraft();
   if (msg.type === 'snapshot' && book && !$('#editor-view').hidden && featureOn('snapshots')) snapshotNow();
   if (msg.type === 'customize') customizeNeo();
+  if (msg.type === 'shelf' && book && !$('#editor-view').hidden) backToShelf();
   if (msg.type === 'emailSettings') emailSettings();
   if (msg.type === 'find') openSearch();
   if (msg.type === 'spellcheck' && featureOn('spellcheck')) toggleSpellcheck();

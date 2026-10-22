@@ -177,6 +177,20 @@ test('Markdown in the panel is Format → Markdown Emphasis', async () => {
   assert.equal(await js('markdownOff()'), false);
 });
 
+test('File → Back to Bookshelf (⇧⌘B) closes the book onto the shelf', async () => {
+  const find = (m) => { for (const i of m.items) { if (i.label === 'Back to Bookshelf') return i; const sub = i.submenu && find(i.submenu); if (sub) return sub; } return null; };
+  const item = find(Menu.getApplicationMenu());
+  assert.ok(item, 'the menu item is there');
+  assert.equal(item.accelerator, 'CmdOrCtrl+Shift+B');
+  assert.equal(item.enabled, true, 'with a book open');
+  item.click();
+  await tick(500);
+  assert.equal(await js(`document.getElementById('bookshelf-view').hidden`), false);
+  assert.equal(await js(`document.getElementById('editor-view').hidden`), true);
+  assert.equal(await js('book'), null);
+  assert.equal(find(Menu.getApplicationMenu()).enabled, false, 'and on the shelf it rests');
+});
+
 /* ---------- runner ---------- */
 
 async function main() {
