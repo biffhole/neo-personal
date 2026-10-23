@@ -12522,18 +12522,30 @@ function nextDayCount(entry, total, seen) {
   if (!entry) return { start: total, end: total };
   let words = dayWords(entry);
   if (typeof seen === 'number') words = Math.max(0, words + total - seen);
-  return { start: total - words, end: total };
+  return withSet({ start: total - words, end: total }, entry.set);
+}
+// A day's count the writer set by hand (Goals → today; 0 resets it) keeps
+// when it was set, so the other device's older, larger tally doesn't bring
+// the old number back. What's typed after it counts on top as usual.
+const withSet = (e, set) => (Number.isFinite(set) ? { ...e, set } : e);
+function setDayCount(total, words, at) {
+  return { start: total - Math.max(0, Math.round(words) || 0), end: total, set: at };
 }
 // another device's days, from its book.json: a day it saw more written in
-// keeps that tally, against this device's own count
+// keeps that tally, against this device's own count. A day set by hand on
+// either side goes by the newest setting.
 function mergeDayCounts(ours, theirs) {
   const out = { ...(ours || {}) };
   if (!theirs || typeof theirs !== 'object') return out;
   for (const [day, e] of Object.entries(theirs)) {
     if (!e || !Number.isFinite(e.start) || !Number.isFinite(e.end)) continue;
     const mine = out[day];
-    if (!mine || !Number.isFinite(mine.end)) out[day] = { start: e.start, end: e.end };
-    else if (dayWords(e) > dayWords(mine)) out[day] = { start: mine.end - dayWords(e), end: mine.end };
+    const theirSet = Number.isFinite(e.set) ? e.set : 0;
+    const mySet = mine && Number.isFinite(mine.set) ? mine.set : 0;
+    if (!mine || !Number.isFinite(mine.end)) out[day] = withSet({ start: e.start, end: e.end }, e.set);
+    else if (theirSet > mySet) out[day] = withSet({ start: mine.end - dayWords(e), end: mine.end }, e.set);
+    else if (theirSet < mySet) continue;
+    else if (dayWords(e) > dayWords(mine)) out[day] = withSet({ start: mine.end - dayWords(e), end: mine.end }, mine.set);
   }
   return out;
 }
@@ -12565,7 +12577,11 @@ function trackDailyWords(total) {
   if (!was || (seen !== undefined && total !== seen && now.start !== was.start)) scheduleMetaSave();
   if (sprint && sprint.bookId !== book.id) sprint = null; // a sprint belongs to the book it began in
   if (sprint && total < sprint.startCount) sprint.startCount = total;
-  const wordsToday = Math.max(0, book.dailyCounts[today].end - book.dailyCounts[today].start);
+  showWordsToday(total);
+}
+// the bottom bar's count: the sprint's while one runs, else today's
+function showWordsToday(total = bookWordCount()) {
+  const wordsToday = dayWords(book.dailyCounts[todayStr()]);
   discordUpdate();
   const gc = $('#goal-counter');
   if (sprint && !sprint.done) {
@@ -12582,6 +12598,18 @@ function trackDailyWords(total) {
       : t('{n} today', { n: wordsToday }));
     gc.classList.toggle('goal-met', goal > 0 && wordsToday >= goal);
   }
+}
+
+// The writer's own number for today (Goals: the count typed over, or Reset).
+// From here, typing counts on top of it.
+function setWordsToday(words) {
+  if (!book) return;
+  const total = bookWordCount();
+  book.dailyCounts = book.dailyCounts || {};
+  book.dailyCounts[todayStr()] = setDayCount(total, words, Date.now());
+  daySeen = { bookId: book.id, total };
+  scheduleMetaSave();
+  showWordsToday(total);
 }
 
 // Pages, the way a manuscript counts them: 250 words to a page. The page
@@ -15371,11 +15399,11 @@ function statsChartSvg() {
     days.push(writingDay(d));
   }
   const counts = book.dailyCounts || {};
-  const daily = days.map((d) => counts[d] ? Math.max(0, counts[d].end - counts[d].start) : 0);
+  const daily = days.map((d) => dayWords(counts[d]));
   // cumulative: carry the last known total forward
   let last = 0;
   const firstKnown = days.find((d) => counts[d]);
-  if (firstKnown) last = counts[firstKnown].start;
+  if (firstKnown) last = Math.max(0, counts[firstKnown].start); // a count set by hand can start below zero
   const cumulative = days.map((d) => {
     if (counts[d]) last = counts[d].end;
     return last;
@@ -15529,8 +15557,8 @@ function hourLabel(h) {
 
 function openStats() {
   const hasBook = !!book;
-  const today = hasBook ? (book.dailyCounts || {})[todayStr()] : null;
-  const wordsToday = today ? Math.max(0, today.end - today.start) : 0;
+  const bookId = hasBook ? book.id : null;
+  const wordsToday = hasBook ? dayWords((book.dailyCounts || {})[todayStr()]) : 0;
   const total = hasBook ? bookWordCount() : 0;
   const bd = document.createElement('div');
   bd.className = 'modal-backdrop';
@@ -15540,7 +15568,7 @@ function openStats() {
       ${hasBook ? `
       <div class="stats-nums">
         <div><div class="big">${fmtNum(total)}</div><div class="lbl">${t('total words')}</div></div>
-        <div><div class="big">${fmtNum(wordsToday)}</div><div class="lbl">${t('today')}</div></div>
+        <div class="st-today"><input id="st-today" class="big" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" value="${fmtNum(wordsToday)}" title="${escHtml(t('Type over it to change today’s count')).replace(/"/g, '&quot;')}" aria-label="${escHtml(t('Words written today')).replace(/"/g, '&quot;')}"/><div class="lbl">${t('today')}<button id="st-today-reset" type="button">${t('Reset')}</button></div></div>
         <div><div class="big">${book.wordGoal ? Math.min(100, Math.round(total / book.wordGoal * 100)) + '%' : '—'}</div><div class="lbl">${t('of book goal')}</div></div>
       </div>
       ${statsChartSvg()}` : ''}
@@ -15570,6 +15598,9 @@ function openStats() {
     library.dayEndsAt = parseInt(bd.querySelector('#st-dayends').value, 10) || 0;
     if (hasBook) {
       book.wordGoal = parseInt(bd.querySelector('#st-book').value, 10) || 0;
+      // today's count, if the writer typed over it (digits only: 1,200 is 1200)
+      const typed = bd.querySelector('#st-today').value.replace(/\D/g, '');
+      if (typed !== String(wordsToday) && book && book.id === bookId) setWordsToday(parseInt(typed || '0', 10));
       scheduleMetaSave();
     }
     await writeLibrary(library);
@@ -15584,6 +15615,10 @@ function openStats() {
   bd.focus();
   bd.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } });
   if (hasBook) {
+    const todayField = bd.querySelector('#st-today');
+    todayField.addEventListener('focus', () => todayField.select());
+    todayField.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); close(); } });
+    bd.querySelector('#st-today-reset').onclick = () => { todayField.value = '0'; todayField.focus(); };
     bd.querySelector('#st-sprint-btn').onclick = () => {
       if (sprint && !sprint.done) {
         const got = bookWordCount() - sprint.startCount;

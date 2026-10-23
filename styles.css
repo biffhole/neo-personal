@@ -1490,6 +1490,21 @@ body.full-screen.focus-mode #bottombar:not(:hover):not(.attn) { opacity: 0; }
 .stats-nums div { text-align: center; }
 .stats-nums .big { font-size: 26px; color: var(--accent); font-family: Georgia, serif; }
 .stats-nums .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 3px; }
+/* today's count can be typed over; it looks like the others until hovered */
+.stats-nums input.big {
+  width: 6ch; field-sizing: content; min-width: 2ch; padding: 0 4px; text-align: center;
+  background: none; border: 1px solid transparent; border-radius: 5px; line-height: 1.2;
+}
+.stats-nums input.big:hover { border-color: #3a3a3a; }
+.stats-nums input.big:focus { outline: none; border-color: var(--accent); }
+.st-today .lbl { position: relative; }
+.stats-nums .lbl button {
+  position: absolute; left: 100%; top: 0; white-space: nowrap;
+  visibility: hidden; background: none; border: 0; padding: 0 0 0 6px; cursor: pointer;
+  font: inherit; color: var(--muted); text-transform: none; letter-spacing: 0;
+}
+.stats-nums .lbl button:hover { color: var(--accent); }
+.st-today:hover .lbl button, .st-today:focus-within .lbl button { visibility: visible; }
 .stats-row { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; font-size: 13px; }
 .stats-row input {
   width: 90px; background: var(--bg); border: 1px solid #3a3a3a; border-radius: 5px;
