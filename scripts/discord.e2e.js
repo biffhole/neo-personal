@@ -6,7 +6,7 @@
 
 'use strict';
 
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, clipboard } = require('electron');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const net = require('net');
@@ -109,10 +109,17 @@ test('in a book: its title, the chapter and the words typed since it opened', as
   assert.ok(Math.abs(a.timestamps.start - opened) < 5000, 'the time counts from the book’s opening');
 });
 
+test('a paste counts, like typing', async () => {
+  clipboard.writeText(' Five words pasted in here.');
+  wc.paste();
+  const a = await until((x) => x && /8 words this session/.test(x.state || ''), 'eight words');
+  assert.match(a.state, /^Chapter 2 — Storm · 8 words this session$/);
+});
+
 test('on the Outline tab it says so', async () => {
   await js(`switchTab('outline')`);
   const a = await until((x) => x && /^Outlining/.test(x.state || ''), 'Outlining');
-  assert.equal(a.state, 'Outlining · 3 words this session');
+  assert.equal(a.state, 'Outlining · 8 words this session');
   await js(`switchTab('manuscript')`);
 });
 
