@@ -12,8 +12,8 @@ const from = app.indexOf('// ---- daily words rules:');
 const to = app.indexOf('// ---- end of daily words rules ----');
 const context = vm.createContext({});
 vm.runInContext(app.slice(from, to), context);
-vm.runInContext('this.api = { dayWords, nextDayCount, mergeDayCounts };', context);
-const { dayWords, nextDayCount, mergeDayCounts } = context.api;
+vm.runInContext('this.api = { dayWords, nextDayCount, mergeDayCounts, setDayCount };', context);
+const { dayWords, nextDayCount, mergeDayCounts, setDayCount } = context.api;
 const plain = (o) => JSON.parse(JSON.stringify(o));
 
 test('a new day starts at the story\'s count', () => {
@@ -62,4 +62,27 @@ test('another device\'s days: the larger tally of a day wins', () => {
   assert.deepEqual(plain(mergeDayCounts(ours, ours)), plain(ours), 'our own file read back changes nothing');
   assert.deepEqual(plain(mergeDayCounts(ours, null)), plain(ours));
   assert.deepEqual(plain(mergeDayCounts(undefined, { d: { start: 'a', end: 1 } })), {});
+});
+
+test('today\'s count set by hand: reset, changed, and typed on from there', () => {
+  const reset = setDayCount(3000, 0, 50);
+  assert.deepEqual(plain(reset), { start: 3000, end: 3000, set: 50 });
+  assert.equal(dayWords(nextDayCount(reset, 3012, 3000)), 12, 'typing after a reset counts from nothing');
+  assert.equal(nextDayCount(reset, 3012, 3000).set, 50, 'and the entry remembers it was set');
+  assert.equal(dayWords(setDayCount(3000, 4500, 50)), 4500, 'a count above the story\'s own is the writer\'s to give');
+  assert.equal(dayWords(setDayCount(3000, -5, 50)), 0);
+});
+
+test('a count set by hand isn\'t undone by the other device\'s older tally', () => {
+  const day = '2026-10-23';
+  const mine = { [day]: { start: 3000, end: 3010, set: 50 } }; // reset, then 10 typed
+  const theirs = { [day]: { start: 2600, end: 3000 } }; // the 400 they saw before the reset
+  assert.equal(dayWords(mergeDayCounts(mine, theirs)[day]), 10, 'the reset stands here');
+  const there = mergeDayCounts(theirs, mine)[day];
+  assert.equal(dayWords(there), 10, 'and is taken in there');
+  assert.equal(there.set, 50);
+  // both have the same setting: the larger tally since then wins, as ever
+  assert.equal(dayWords(mergeDayCounts(mine, { [day]: { start: 2980, end: 3010, set: 50 } })[day]), 30);
+  // a newer setting over there wins over an older one here
+  assert.equal(dayWords(mergeDayCounts(mine, { [day]: { start: 3000, end: 3200, set: 90 } })[day]), 200);
 });

@@ -479,6 +479,50 @@ test('a chapter made a part, and back, adds nothing to today', async () => {
   assert.equal(await text('goal-counter'), '0 today');
 });
 
+// Goals: today's count is the writer's to change. Typed over or reset, it
+// stays so when the book is read again, and typing counts on from it.
+test('today\'s count is reset and changed in Goals, and the other computer\'s older count doesn\'t undo it', async () => {
+  const id = await shelvedBook('Set by hand', [{ title: 'One', paras: [{ text: many(500, 'dune') }] }]);
+  const meta = bookJson(id);
+  const today = await js('todayStr()');
+  meta.dailyCounts = { [today]: { start: 100, end: 500 } }; // 400 written today
+  fs.writeFileSync(path.join(folder(id), 'book.json'), JSON.stringify(meta));
+  await open(id);
+  assert.equal(await text('goal-counter'), '400 today');
+  const goals = async () => { await js(`document.getElementById('goal-counter').click()`); await tick(200); };
+  const done = async () => { await js(`document.querySelector('.modal-backdrop .m-ok').click()`); await tick(1300); };
+
+  await goals();
+  assert.equal(await js(`document.getElementById('st-today').value`), '400');
+  await js(`document.getElementById('st-today-reset').click()`);
+  await done();
+  assert.equal(await text('goal-counter'), '0 today');
+  const saved = bookJson(id).dailyCounts[today];
+  assert.equal(saved.end - saved.start, 0, 'the reset is saved');
+  assert.ok(saved.set > 0, 'as set by hand');
+
+  await caretAtEnd();
+  await type(' gulls');
+  assert.equal(await text('goal-counter'), '1 today', 'typing counts on from the reset');
+
+  // the other computer's book.json still says 400 from before the reset
+  await tick(1300);
+  const there = bookJson(id);
+  there.dailyCounts = { [today]: { start: 101, end: 501 } };
+  fs.writeFileSync(path.join(folder(id), 'book.json'), JSON.stringify(there));
+  await lookAtDisk();
+  assert.equal(await text('goal-counter'), '1 today', 'the old count doesn\'t come back');
+
+  await goals();
+  await js(`(() => { const f = document.getElementById('st-today'); f.value = '1,250'; })()`);
+  await done();
+  assert.equal(await text('goal-counter'), '1,250 today', 'a number typed over it, separators and all');
+  await goals();
+  assert.equal(await js(`document.getElementById('st-today').value.replace(/\\D/g, '')`), '1250');
+  await done();
+  assert.equal(await text('goal-counter'), '1,250 today', 'Done with it untouched changes nothing');
+});
+
 /* ---------- runner ---------- */
 
 async function main() {

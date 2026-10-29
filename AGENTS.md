@@ -19,6 +19,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) before adding a feature. The product is 
 | File | Role |
 |---|---|
 | `main.js` | Window, menus, every filesystem operation, import parsing, PDF, backups |
+| `importers.js` | Import readers beyond .docx/.txt/.md: HTML, EPUB, .odt, PDF (pdfjs-dist), RTF and .doc (`textutil` on a Mac), links (Google Docs, Drive, web pages). Main process; `importFile` in `main.js` finds the chapters |
 | `preload.js` | The entire renderer API, `window.neo` |
 | `index.html` | Two views: `#bookshelf-view` and `#editor-view`. CSP is `script-src 'self'` |
 | `app.js` | The whole UI, in banner-marked sections. Search for the banner before reading the file |
@@ -27,6 +28,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) before adding a feature. The product is 
 | `art.js` | Painted covers in the main process. OpenAI only. Title and author are never sent to the image model |
 | `i18n.js` | `t()` / `tk()`, shared by main and the window. English source text is the key |
 | `spell-worker.js` | Hunspell WASM, forked with `utilityProcess`. Messages: `load`, `check`, `suggest`, `add` |
+| `discord.js` | Discord Rich Presence over Discord's local socket (`discord-ipc-N`), no package. `createPresence` and `buildActivity`, used by `discord:activity` in `main.js` |
 | `backup-worker.js` | The day's backup zip, forked with `utilityProcess` by `dailyBackup` so a file that won't come off iCloud never holds the main process |
 | `spell-ro.js` | Romanian diacritics, used by the worker. Does not alter the manuscript |
 | `manuscript.js` | Standard manuscript format: the word count's rounding, the header's surname, the `.docx`'s parts and the PDF's page, from a model the window hands it. Plain JavaScript that also runs in Node (`window.NeoManuscript`, loaded by `index.html`) |
@@ -51,6 +53,16 @@ NEO opens simple. File → Show More Features (`library.moreFeatures`) brings ba
 - A library from before the switch is decided once (`decideMoreFeatures`): on when it uses something behind it, off otherwise (with one toast saying where things went).
 - Pocket (Android and iOS) is always simple and has no switch; its ⋯ sheet in `pocket/www/index.html` offers only simple NEO's choices.
 - A new feature goes behind the switch unless Hugh says it belongs in simple NEO. `scripts/simple-neo.test.js`, `npm run test:simple`.
+
+## Customize NEO
+
+View → Customize NEO… (CUSTOMIZE NEO in `app.js`) turns tabs, panels and features off: `library.featuresOff` holds the ids, `featureOn(id)` asks. Off hides the tab or pane (a `feature-off-<id>` class on the body, `styles.css`), stands its keys down, and drops its menu items (`feature: '<id>'` in `buildMenu()`, left out by `simpleTemplate` from the window's `features:state`). Markdown's switch is `library.markdownOff`, shown in the same panel. A new feature with its own tab, pane, menu item or key gets an entry in `FEATURES`. `npm run test:customize`.
+
+This version opens on View → Page → Automatic (`pageTheme: 'auto'`, the default; a library from before is set so once, `library.autoTheme`): a white page always, in Paper's dark room when the computer is in dark mode and Light's room otherwise (`pageThemeNow` in `app.js`, `roomColor` in `main.js`).
+
+## Discord status
+
+On the desktop, with Discord open, the writer's Discord profile shows NEO Enhanced, the book, the chapter the caret is in (or Outlining, Notes, Darlings), the time since the book was opened and the words typed since (DISCORD in `app.js`). The session's words add up in `trackDailyWords` from the same total − seen as the day's count, so text read from disk never counts. The window sends the activity on `discord:activity` only when it changed; `discord.js` sends Discord at most one update every 15 s (its limit is 5 in 20 s) and clears it on quit. The Discord application is "NEO Enhanced" (`DISCORD_CLIENT_ID` in `main.js`); `discordClientId` in `settings.json` overrides it. Customize NEO → Discord status (`discord`, desktop only) turns it off. Pocket has none. `scripts/discord.test.js`, `npm run test:discord`.
 
 ## Outline cards
 
@@ -177,7 +189,7 @@ The window holds the open book in memory (`chapterHTML`, `book`, `stickies`, `da
 - Both sides changed: keep the local text on the page and insert the disk text as the next chapter, titled as from the other device.
 - Skip a chapter whose write is still in flight. Drop a read that overlapped a local save. An empty read must not wipe a chapter that already has text.
 - The same generation check applies to `library.json` on the shelf (`libraryGeneration`, `libraryWritesPending`).
-- Today's word count (`book.dailyCounts`, `{ start, end }` per writing day) counts only what is typed or cut on this page. Text read from disk (opening, a chapter adopted or kept as the other device's twin) goes through `wordsFromDisk`, which moves the day's start with it. Another device's larger tally for a day is taken in (`mergeDayCounts`). `scripts/daily-words.test.js`, and the #345 cases in `npm run test:words`.
+- Today's word count (`book.dailyCounts`, `{ start, end }` per writing day) counts only what is typed or cut on this page. Text read from disk (opening, a chapter adopted or kept as the other device's twin) goes through `wordsFromDisk`, which moves the day's start with it. Another device's larger tally for a day is taken in (`mergeDayCounts`). The writer can type over today's count in Goals, or Reset it (`setWordsToday`): the entry keeps `set`, when it was set, and the newest setting wins over any tally from before it, so a reset doesn't come back from the other device. `scripts/daily-words.test.js`, and the #345 cases in `npm run test:words`.
 
 Structural undo (`snapshotStructure`, `structuralUndo`, banner STRUCTURAL UNDO) holds `UNDO_DEPTH` (50) actions. An undo puts back only what its action changed: writing made since stays, or, in a chapter the action also touched, goes to Darlings with a toast that says so. What an undo took back goes on `redoStack` (⇧⌘Z, Ctrl+Z's pair; Ctrl+Y off the Mac); any `input` event anywhere, or a new action, empties it. A redo is an undo of the undo, so it keeps the same protections.
 

@@ -115,7 +115,8 @@ test('the keys behind the switch do nothing: footnote, poetry, tab keys', async 
 test('the shortcuts window lists only what\'s showing', async () => {
   const rows = await js(`bookShortcutSections().flatMap((s) => s.rows.map((r) => r[1]))`);
   assert.ok(rows.includes('Insert a placeholder note'));
-  for (const gone of ['Italic, bold, the Markdown way', 'Add a footnote', 'Start or continue a poetry paragraph', 'Read aloud from the cursor', 'Cycle focus mode', 'Center paragraph', 'Go to the next tab']) {
+  // (Markdown stays in simple NEO in this version)
+  for (const gone of ['Add a footnote', 'Start or continue a poetry paragraph', 'Read aloud from the cursor', 'Cycle focus mode', 'Center paragraph', 'Go to the next tab']) {
     assert.ok(!rows.includes(gone), gone + ' is not listed');
   }
 });
@@ -128,8 +129,9 @@ test('no cards beside the page', async () => {
   await shot('simple-page');
 });
 
-test('Markdown asterisks stay asterisks in simple NEO', async () => {
-  assert.equal(await js('markdownOff()'), true);
+// this version keeps Markdown as you type in simple NEO
+test('Markdown works as you type in simple NEO', async () => {
+  assert.equal(await js('markdownOff()'), false);
 });
 
 // a book's right-click on the shelf: what it offers, then closed again

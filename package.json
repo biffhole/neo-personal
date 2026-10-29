@@ -20,6 +20,11 @@
     "test:pages": "electron scripts/pages.e2e.js",
     "test:simple": "electron scripts/simple.e2e.js",
     "test:find": "electron scripts/find.e2e.js",
+    "test:formatting": "electron scripts/formatting.e2e.js",
+    "test:features": "electron scripts/features.e2e.js",
+    "test:import": "electron scripts/import.e2e.js",
+    "test:customize": "electron scripts/customize.e2e.js",
+    "test:discord": "electron scripts/discord.e2e.js",
     "test": "node --test \"scripts/*.test.js\"",
     "test:coverage": "node --test --experimental-test-coverage \"scripts/*.test.js\"",
     "lint": "oxlint",
@@ -35,11 +40,6 @@
   "build": {
     "appId": "com.hughhowey.neo",
     "productName": "NEO",
-    "publish": {
-      "provider": "github",
-      "owner": "hughhowey",
-      "repo": "neo"
-    },
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
@@ -142,10 +142,16 @@
       "!scripts/**",
       "!licenses/**",
       "!Claude outputs/**",
+      "!assets/**",
       "!dictionaries/**",
       "!locales/_template.json",
       "!node_modules/koffi/build/koffi/{freebsd,linux,musl,openbsd,win32}_*/**",
-      "!node_modules/koffi/{src,vendor,doc}/**"
+      "!node_modules/koffi/{src,vendor,doc}/**",
+      "!node_modules/@napi-rs/**",
+      "!node_modules/pdfjs-dist/{build,web,image_decoders,types}/**",
+      "!node_modules/pdfjs-dist/legacy/{web,image_decoders}/**",
+      "!node_modules/pdfjs-dist/**/*.{map,d.mts}",
+      "!node_modules/pdfjs-dist/legacy/build/{pdf.min.mjs,pdf.worker.min.mjs,pdf.sandbox*}"
     ],
     "toolsets": {
       "appimage": "1.0.3"
@@ -177,7 +183,8 @@
     "dictionary-sv": "4.0.0",
     "electron-updater": "^6.3.9",
     "jszip": "^3.10.1",
-    "koffi": "2.16.3"
+    "koffi": "2.16.3",
+    "pdfjs-dist": "^4.10.38"
   },
   "allowScripts": {
     "electron@33.4.11": true

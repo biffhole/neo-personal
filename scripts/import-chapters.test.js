@@ -182,14 +182,19 @@ describe('File → Import Chapters…', () => {
   });
 
   test('its picker offers prose files only', async () => {
+    // every document NEO reads (importers.js), and no scripts
+    const prose = ['docx', 'txt', 'md', 'pdf', 'epub', 'odt', 'rtf', 'html'];
+    const noScripts = (exts) => !exts.includes('fountain') && !exts.includes('fdx');
     await handlers.get('import:pick')(null, { chapters: true });
-    assert.deepEqual(plain(dialogOpts.filters[0].extensions), ['docx', 'txt', 'md']);
+    let exts = plain(dialogOpts.filters[0].extensions);
+    assert.ok(prose.every((x) => exts.includes(x)) && noScripts(exts), exts.join(' '));
     await handlers.get('import:pick')(null);
     assert.ok(dialogOpts.filters[0].extensions.includes('fountain'));
     // simple NEO: scripts are behind Show More Features
     on.get('more:state')(null, false);
     await handlers.get('import:pick')(null);
-    assert.deepEqual(plain(dialogOpts.filters[0].extensions), ['docx', 'txt', 'md']);
+    exts = plain(dialogOpts.filters[0].extensions);
+    assert.ok(prose.every((x) => exts.includes(x)) && noScripts(exts), exts.join(' '));
     assert.equal(item(), undefined);
   });
 });

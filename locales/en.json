@@ -77,5 +77,9 @@
   "Snapshot taken, {time}: {n} chapters changed. It’s on the Darlings tab.": {
     "one": "Snapshot taken, {time}: {n} chapter changed. It’s on the Darlings tab.",
     "other": "Snapshot taken, {time}: {n} chapters changed. It’s on the Darlings tab."
+  },
+  "{n} words this session": {
+    "one": "{n} word this session",
+    "other": "{n} words this session"
   }
 }

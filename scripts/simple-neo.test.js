@@ -65,11 +65,13 @@ const menu = (template, name) => template.find((m) => m.label === name).submenu;
 const MORE = ['Plain Text (.txt)', 'Markdown (.md)', 'Web Page (.html)', 'Manuscript Format…', 'Chapter Titles Only',
   'Cover Art…', 'New Books Open To', 'Import Chapters…', 'Reshelve a Book…', 'Spellcheck Language', 'Other Font…',
   'Align Paragraph', 'Show Pages', 'Two Pages Side by Side', 'Page Width', 'Non-Breaking Marks', 'Poetry Paragraph',
-  'Markdown Emphasis', 'Focus Mode', 'Vim Keys', 'Brighter Interface', 'Language'];
+  'Focus Mode', 'Vim Keys', 'Brighter Interface', 'Language'];
 const SIMPLE = ['PDF (.pdf)', 'Word (.docx)', 'EPUB (.epub)', 'Paperback for KDP…', 'Email Draft to Myself', 'Email Settings…',
   'Take Snapshot', 'Goals…', 'Import Manuscripts…', 'Library Folder…', 'Show More Features', 'Find & Replace', 'Spellcheck Pass',
   'Body Font', 'Drop Cap Style', 'Larger Text', 'Typewriter Scrolling', 'Flush Paragraph', 'Keyboard Shortcuts…',
-  'Full Screen', 'Page'];
+  'Full Screen', 'Page',
+  // this version's own: formatting and Markdown stay in simple NEO
+  'Markdown Emphasis', 'Bold', 'Underline', 'Strikethrough', 'Paragraph Style', 'Heading', 'Clear Formatting', 'Copy Chapter Headings'];
 
 describe('the menu bar, simple and with Show More Features', () => {
   for (const platform of ['darwin', 'win32', 'linux']) {

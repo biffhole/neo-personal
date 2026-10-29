@@ -126,6 +126,15 @@ function chapterHeading(chId, meta = book, sep = ' ' + headingDash() + ' ') {
   if (!title) return chapterName(chId, meta);
   return library.exportCustomChapterTitles ? title : chapterName(chId, meta) + sep + title;
 }
+// the heading as the page shows it ("Chapter 3 — The Long Way Home"), for
+// a copy; a lone chapter shows none, so it has none to give
+function chapterHeadingText(chId) {
+  if (!book || chId === soloStory()) return '';
+  const kind = chapterKind(chId);
+  const title = ((book.chapterTitles || {})[chId] || '').trim();
+  if (kind === 'unnumbered') return title;
+  return title && STORY_KINDS.includes(kind) ? chapterName(chId) + ' ' + headingDash() + ' ' + title : chapterName(chId);
+}
 function kindName(kind) {
   if (kind === 'chapter') return t('Chapter');
   if (kind === 'unnumbered') return t('Unnumbered Chapter');
@@ -204,6 +213,12 @@ let stickies = [];           // [{id, chapterId, text, resolved}]
 let darlings = [];           // [{id, html, text, chapterId, chapterLabel, date}]
 let currentTab = 'manuscript';
 let currentChapterId = null; // chapter the caret/scroll is in
+// Discord (DISCORD): when NEO opened; the book open now, since when, and
+// the words typed or cut since then (trackDailyWords adds them; text read
+// from disk never counts); what Discord was last sent
+const NEO_OPENED = Date.now();
+let discordSession = null;
+let discordSent = '';
 let wordMode = 'book';       // 'book' | 'chapter'
 let saveTimers = {};
 
@@ -285,8 +300,9 @@ const IS_POCKET = !!window.Capacitor;
 // and iOS) is always simple and has no switch. SIMPLE NEO near the end of
 // this file decides the switch for a library that predates it.
 const moreOn = () => !IS_POCKET && !!(library && library.moreFeatures);
-// *italic* and **bold** typed as Markdown are behind the switch too
-const markdownOff = () => !!library && (!moreOn() || !!library.markdownOff);
+// Markdown as you type stays on in simple NEO too (this version's own
+// choice); Format → Markdown Emphasis turns it off
+const markdownOff = () => !!library && !!library.markdownOff;
 
 // Touch has no right-click: a long press on a book, a shelf name or a chapter
 // heading opens the same menu. Not inside the text itself — there a long
@@ -549,6 +565,7 @@ function showWindowTitle() {
   document.title = title ? title + ' — NEO' : 'NEO';
   const strip = IS_MAC && !IS_POCKET && document.querySelector('#dragstrip'); // the desktop's page only
   if (strip) strip.textContent = title;
+  discordUpdate();
 }
 
 function toast(msg, ms = 4000) {
@@ -1009,12 +1026,12 @@ async function renderShelves() {
       e.preventDefault();
       if (isBound(shelf)) { await boundShelfMenu(shelf); return; }
       const choice = await optionModal(escHtml(t('Shelf “{name}”', { name: shelf.name })), null, [
-        ...(moreOn() ? [{
+        ...(moreOn() && featureOn('binding') ? [{
           label: t('Bind into one book'),
           desc: t('Its titles become one book, with a cover, front and back pages, and one table of contents.'),
           value: 'bind'
-        },
-        {
+        }] : []),
+        ...(moreOn() ? [{
           label: t('Export shelf as anthology…'),
           desc: shelf.bookIds.length
             ? t('Collect its {n} works, in shelf order, into a single book with a table of contents.', { n: shelf.bookIds.length })
@@ -1088,7 +1105,7 @@ async function renderShelves() {
         if (!paths.length) return;
         toast(t('Importing…'));
         const results = await window.neo.importFiles(paths);
-        if (!results.length) { toast(t('No .docx, .txt, or .md files in that drop')); return; }
+        if (!results.length) { toast(t('Nothing in that drop NEO can import')); return; }
         await addImportedBooks(results, shelf);
         return;
       }
@@ -1136,7 +1153,7 @@ async function renderShelves() {
     if (!isBound(shelf)) {
       blank.addEventListener('contextmenu', async (e) => {
         e.preventDefault();
-        if (!moreOn()) return; // scripts are behind Show More Features
+        if (!moreOn() || !featureOn('scripts')) return; // scripts are behind Show More Features (and Customize NEO)
         const pick = await popMenu(e.clientX, e.clientY, [
           { label: t('New Book'), value: 'book' },
           { label: t('New Script'), value: 'script' }
@@ -1938,7 +1955,7 @@ function bookTile(meta, opts = {}) {
         await writeBookMeta(meta.id, meta);
         renderShelves();
       }
-    } else if (/\.(docx|txt|md|fountain|fdx)$/i.test(p)) {
+    } else if (IMPORT_FILE.test(p) || /\.(fountain|fdx)$/i.test(p)) {
       const homeShelf = library.shelves.find((s) => s.bookIds.includes(meta.id)) || library.shelves[0];
       const results = await window.neo.importFiles([p]);
       if (results.length) await addImportedBooks(results, homeShelf);
@@ -2639,7 +2656,7 @@ function renderChapters() {
         if (e.key === 'Enter' && e.shiftKey && (e.metaKey || e.ctrlKey)) {
           e.preventDefault();
           titleSpan.blur();
-          poetryUnderHeading(sec.querySelector('.chapter-body'), chId);
+          if (featureOn('poetry')) poetryUnderHeading(sec.querySelector('.chapter-body'), chId);
         } else if (e.key === 'Enter') { e.preventDefault(); titleSpan.blur(); }
         e.stopPropagation();
       });
@@ -2922,14 +2939,46 @@ function wireChapterBody(body, chId) {
     }
     insertClip(e.dataTransfer);
   });
+  // ⌘C from the top of a chapter (⌘A, or any selection that starts there)
+  // brings the chapter's heading along, the way it reads on the page.
+  // Edit → Copy Chapter Headings turns it off.
+  body.addEventListener('copy', (e) => {
+    if (library.copyChapterHeadings === false || isScript()) return;
+    const heading = chapterHeadingText(chId);
+    const sel = window.getSelection();
+    if (!heading || !sel.rangeCount || sel.isCollapsed) return;
+    const r = sel.getRangeAt(0);
+    if (!body.contains(r.commonAncestorContainer)) return;
+    const before = document.createRange();
+    before.setStart(body, 0);
+    before.setEnd(r.startContainer, r.startOffset);
+    if (before.toString().trim()) return; // starts partway in: an ordinary copy
+    const holder = document.createElement('div');
+    holder.appendChild(r.cloneContents());
+    if (!holder.querySelector('p')) holder.innerHTML = '<p>' + holder.innerHTML + '</p>';
+    const paras = parasFromHtml(holder.innerHTML);
+    const lines = paras.map((p) => (p.sceneBreak ? '***'
+      : (p.fmt === 'ul' ? '• ' : p.fmt === 'ol' ? p.num + '. ' : '') + p.text));
+    const html = styledParasHtml(paras, paraInner, (p) => (p.sceneBreak ? '<hr>' : p.html), { h1: 'h2', h2: 'h3', mark: true });
+    e.preventDefault();
+    // plain text spaces paragraphs with a blank line, like an ordinary copy
+    e.clipboardData.setData('text/plain', [heading, ...lines].join('\n\n'));
+    e.clipboardData.setData('text/html', `<h1>${escHtml(heading)}</h1>` + html);
+  });
   function insertClip(data) {
     writeOverGhost(); // pasted words over a gray note are prose, like typed ones
-    const html = data.getData('text/html');
+    let html = data.getData('text/html');
     const text = data.getData('text/plain');
+    // Markdown arrives as plain text, sometimes with a rich copy that's just
+    // colored text still showing the raw ** and # (a code editor). Read it
+    // as Markdown then. A real document's rich copy (headings, lists, bold)
+    // wins, even when its plain text happens to look like Markdown.
+    if (!markdownOff() && text && looksLikeMarkdown(text) &&
+      (!html || (!richFormatting(html) && looksLikeMarkdown(htmlText(html))))) html = markdownToHtml(text);
     // hyphens set as dialogue dashes, the same as typing them
     const edges = caretEdges(body);
     if (html) {
-      document.execCommand('insertHTML', false, cleanPasteHtml(html, { style: dashStyle(), ...edges }));
+      document.execCommand('insertHTML', false, cleanPasteHtml(html, { style: dashStyle(), ...edges }, featureOn('paragraphStyles')));
       // the engine wraps inserted HTML (and its neighbours) in style spans
       if (body.querySelector('span:not(.ph-mark):not(.fn)')) {
         const caret = captureCaret();
@@ -3014,9 +3063,12 @@ function wireChapterBody(body, chId) {
       smartKeys(e, body);
       return;
     }
-    if (handlePoetry(e, body, chId)) return;
-    if (handleFlush(e, body, chId)) return;
+    if (featureOn('paragraphStyles') && formatKeys(e)) return;
+    if (featureOn('poetry') && handlePoetry(e, body, chId)) return;
+    if (featureOn('flush') && handleFlush(e, body, chId)) return;
+    if (plainShiftEnter(e, body, chId)) return;
     if (poetryBackspace(e, body, chId)) return;
+    if (formatBackspace(e, body, chId)) return;
     if (sceneBreakDelete(e, body, chId)) return;
     if (spaceSafeDelete(e, body, chId)) return;
     if (emptyChapterBackspace(e, body, chId)) return;
@@ -3026,6 +3078,7 @@ function wireChapterBody(body, chId) {
     if (e.key === 'Enter') dialogueDashKey(e, body);
     if (handleEnter(e, body, chId)) return;
     if (handleTabSpacing(e)) return;
+    if (featureOn('paragraphStyles') && markdownBlockKey(e, body, chId)) return;
     smartKeys(e, body);
   });
   // when the whole chapter loses focus, merge every fragmented text node
@@ -3055,7 +3108,9 @@ function wireChapterBody(body, chId) {
     if (e.inputType !== 'insertLineBreak' || e.defaultPrevented) return;
     if (isScript()) { e.preventDefault(); return; } // a script's lines are its elements
     const key = { key: 'Enter', shiftKey: true, metaKey: false, ctrlKey: false, altKey: false, preventDefault: () => e.preventDefault() };
-    if (!handlePoetry(key, body, chId)) handleFlush(key, body, chId);
+    if (featureOn('poetry') && handlePoetry(key, body, chId)) return;
+    if (featureOn('flush') && handleFlush(key, body, chId)) return;
+    plainShiftEnter(key, body, chId);
   });
   // the moment writing hits a ghost, it becomes prose
   // (it keeps its data-sec-id so the outline knows it's been written)
@@ -3222,7 +3277,7 @@ function emptyChapterBackspace(e, body, chId) {
   return true;
 }
 
-// ⌘B / ⌘I applied by hand: the engine's native handling scrolls the
+// ⌘B / ⌘I / ⌘U / ⌘⇧S applied by hand: the engine's native handling scrolls the
 // selection "into view" and mis-measures NEO's transformed page column,
 // throwing the reader to the top of the screen. Style, don't scroll.
 function styleKeepScroll(e) {
@@ -3232,11 +3287,7 @@ function styleKeepScroll(e) {
     : ({ KeyB: 'bold', KeyI: 'italic', KeyU: 'underline' })[e.code];
   if (!cmd) return false;
   e.preventDefault();
-  const sc = $('#paper-scroll');
-  const keep = sc.scrollTop;
-  document.execCommand(cmd);
-  sc.scrollTop = keep;
-  requestAnimationFrame(() => { sc.scrollTop = keep; });
+  inlineFormat(cmd);
   return true;
 }
 
@@ -3758,6 +3809,7 @@ function handleEnter(e, body, chId) {
   if (el.nodeType === Node.TEXT_NODE) el = el.parentElement;
   const block = el && el.closest ? el.closest('p') : null;
   if (!block || !body.contains(block)) return false;
+  if (block.dataset.fmt) return formattedEnter(e, body, chId, block);
   // on a page (a dedication, a part, the copyright) Enter is only a new
   // line: breaks and new chapters belong to the story
   if (!isStory(chId) && !block.classList.contains('poetry')) {
@@ -4060,6 +4112,16 @@ function handleFlush(e, body, chId) {
   return true;
 }
 
+// ⇧Enter with flush paragraphs turned off (Customize NEO): an ordinary new
+// paragraph, never a line break inside one
+function plainShiftEnter(e, body, chId) {
+  if (featureOn('flush') || e.key !== 'Enter' || !e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return false;
+  e.preventDefault();
+  document.execCommand('insertParagraph');
+  syncChapter(body, chId);
+  return true;
+}
+
 // Backspace at the very start of a poetry or flush paragraph makes it prose
 // again — the second Backspace then merges it upward like any paragraph
 function poetryBackspace(e, body, chId) {
@@ -4128,6 +4190,235 @@ function poetryUnderHeading(body, chId) {
   syncChapter(body, chId);
   resetNativeUndo();
   breakRun++;
+}
+
+/* ================================================================== */
+/*  PARAGRAPH STYLES — headings, block quotes, bulleted and numbered   */
+/*  lists. Each is still an ordinary paragraph carrying data-fmt, so   */
+/*  everything that walks a chapter's <p>s — breaks, darlings, search, */
+/*  focus, exports — keeps working. Markdown habits work too: "# " at  */
+/*  the start of a line makes a heading.                               */
+/* ================================================================== */
+
+// the chapter and paragraphs the selection touches, if it's in the manuscript
+function selectionParas() {
+  const sel = window.getSelection();
+  if (!book || currentTab !== 'manuscript' || !sel.rangeCount) return null;
+  const r = sel.getRangeAt(0);
+  let el = r.startContainer;
+  if (el.nodeType === Node.TEXT_NODE) el = el.parentElement;
+  const body = el && el.closest ? el.closest('.chapter-body') : null;
+  if (!body) return null;
+  const ps = [...body.querySelectorAll('p')].filter(
+    (p) => r.intersectsNode(p) && !p.classList.contains('scene-break')
+  );
+  return ps.length ? { body, chId: body.closest('.chapter').dataset.id, ps } : null;
+}
+
+// '' makes plain prose again; a poem line turned heading or list item
+// stops being poetry (and sheds the italic it was born with)
+function setParaFormat(p, fmt) {
+  if (!fmt) { p.removeAttribute('data-fmt'); return; }
+  if (p.classList.contains('poetry')) romanize(p);
+  p.classList.remove('poetry', 'flush', 'ghost');
+  p.dataset.fmt = fmt;
+}
+
+// ⌘B / ⌘I / ⌘U / ⌘⇧S by hand (see styleKeepScroll)
+function inlineFormat(cmd) {
+  const sc = $('#paper-scroll');
+  const keep = sc.scrollTop;
+  document.execCommand(cmd);
+  sc.scrollTop = keep;
+  requestAnimationFrame(() => { sc.scrollTop = keep; });
+}
+
+// Format menu and its keys
+function applyFormat(value) {
+  if (isScript()) return; // a script's lines are its elements
+  const at = selectionParas();
+  if (!at) { toast(t('Click into a paragraph first')); return; }
+  const inline = value === 'bold' || value === 'italic' || value === 'underline' || value === 'strike';
+  if (!inline && !featureOn('paragraphStyles')) return;
+  if (value === 'bold' || value === 'italic' || value === 'underline') inlineFormat(value);
+  else if (value === 'strike') inlineFormat('strikeThrough');
+  else if (value === 'clear') clearFormatting(at);
+  else setBlockFormat(at, value === 'plain' ? '' : value);
+}
+
+// The keys for paragraph styles and Clear Formatting. Digits are read by
+// position, but off the Mac the key must still be the digit itself:
+// Ctrl+Alt is AltGr on Windows, and AltGr+0 is how a German keyboard
+// types "}".
+function formatKeys(e) {
+  if (!(e.metaKey || e.ctrlKey)) return false;
+  const digit = /^Digit(\d)$/.exec(e.code);
+  const isDigit = digit && (IS_MAC || e.key === digit[1]);
+  let value = null;
+  if (e.shiftKey && !e.altKey && digit) value = { 7: 'ol', 8: 'ul', 9: 'quote' }[digit[1]];
+  else if (e.altKey && !e.shiftKey && isDigit) value = { 0: 'plain', 1: 'h1', 2: 'h2' }[digit[1]];
+  else if (!e.shiftKey && !e.altKey && e.code === 'Backslash') value = 'clear';
+  if (!value) return false;
+  e.preventDefault();
+  applyFormat(value);
+  return true;
+}
+
+// Paragraph styles toggle: asking for the style every touched paragraph
+// already has turns them back into prose. ⌘Z undoes it in one step.
+function setBlockFormat(at, fmt) {
+  const off = !fmt || at.ps.every((p) => p.dataset.fmt === fmt);
+  if (off && !at.ps.some((p) => p.dataset.fmt)) return;
+  const caret = captureCaret();
+  snapshotStructure('paragraph style');
+  for (const p of at.ps) setParaFormat(p, off ? '' : fmt);
+  restoreCaret(caret);
+  syncChapter(at.body, at.chId);
+  resetNativeUndo();
+  breakRun++;
+}
+
+// back to plain prose: no bold, italic, underline or strikethrough in the
+// selection, and every paragraph it touches loses its style
+function clearFormatting(at) {
+  snapshotStructure('clear formatting');
+  const sel = window.getSelection();
+  if (!sel.isCollapsed) inlineFormat('removeFormat');
+  for (const p of at.ps) {
+    if (p.classList.contains('poetry')) romanize(p);
+    p.classList.remove('poetry', 'flush');
+    setParaFormat(p, '');
+  }
+  syncChapter(at.body, at.chId);
+  resetNativeUndo();
+  breakRun++;
+}
+
+// Enter in a styled paragraph. Lists and quotes carry on to the next line;
+// Enter on an empty one steps back out into prose. After a heading, prose
+// resumes.
+function formattedEnter(e, body, chId, block) {
+  const fmt = block.dataset.fmt;
+  // With the caret at the start of a heading, Enter keeps the rhythm of any
+  // paragraph: once pushes the heading down, twice makes the empty line
+  // above it a *** break, three times starts the next chapter at the heading
+  // (a pasted "Chapter 9" is split off this way)
+  const sel = window.getSelection();
+  const r = sel.getRangeAt(0);
+  const headingStart = (fmt === 'h1' || fmt === 'h2') && isStory(chId) &&
+    block.textContent.trim() !== '' && flatOffset(block, r.startContainer, r.startOffset) === 0;
+  const prev = block.previousElementSibling;
+  if (headingStart && enterRun >= 2 && prev) {
+    e.preventDefault();
+    if (prev.classList.contains('scene-break')) {
+      snapshotStructure('chapter split');
+      const was = caretHeight();
+      prev.remove();
+      splitChapterAt(body, chId, block, sel, was);
+      return true;
+    }
+    if (prev.tagName === 'P' && !prev.dataset.fmt && prev.textContent.trim() === '' && !prev.querySelector('.ph-mark')) {
+      snapshotStructure('section break', { rejoin: true });
+      prev.removeAttribute('style');
+      prev.className = 'scene-break';
+      prev.textContent = '***';
+      placeCaret(block, 0);
+      syncChapter(body, chId);
+      resetNativeUndo();
+      if (!typewriterEnabled) revealCaret();
+      breakRun++;
+      return true;
+    }
+  }
+  e.preventDefault();
+  if (!headingStart) enterRun = 0;
+  if (block.textContent.trim() === '') {
+    snapshotStructure('paragraph style');
+    setParaFormat(block, '');
+    placeCaret(block, 0);
+    syncChapter(body, chId);
+    resetNativeUndo();
+    breakRun++;
+    return true;
+  }
+  if (block.querySelector('span:not(.ph-mark):not(.fn)')) {
+    const caret = captureCaret();
+    stripJunkSpans(block);
+    restoreCaret(caret);
+  }
+  document.execCommand('insertParagraph'); // the engine copies data-fmt onto the new line
+  if (fmt === 'h1' || fmt === 'h2') {
+    // the empty line Enter made is prose, the heading's words keep the
+    // style. At the start of a heading the engine may move the words to a
+    // new line or leave them and put the empty one before them.
+    const cur = caretBlock(body);
+    let made = null;
+    if (block.textContent.trim() === '') made = block;
+    else if (cur && cur !== block) made = cur;
+    else if (block.previousElementSibling && block.previousElementSibling.textContent.trim() === '') made = block.previousElementSibling;
+    if (made && made.dataset.fmt) {
+      made.removeAttribute('data-fmt');
+      // (and the bold or italic the heading's words were wrapped in)
+      if (!made.textContent.trim()) made.innerHTML = '<br>';
+    }
+  }
+  syncChapter(body, chId);
+  return true;
+}
+
+// Backspace at the very start of a styled paragraph removes the style first
+function formatBackspace(e, body, chId) {
+  if (e.key !== 'Backspace' || e.metaKey || e.ctrlKey || e.altKey) return false;
+  const sel = window.getSelection();
+  if (!sel.rangeCount || !sel.isCollapsed) return false;
+  const block = caretBlock(body);
+  if (!block || !block.dataset.fmt) return false;
+  const r = sel.getRangeAt(0);
+  if (flatOffset(block, r.startContainer, r.startOffset) !== 0) return false;
+  e.preventDefault();
+  snapshotStructure('paragraph style');
+  setParaFormat(block, '');
+  placeCaret(block, 0);
+  syncChapter(body, chId);
+  resetNativeUndo();
+  breakRun++;
+  return true;
+}
+
+// Markdown habits at the start of a paragraph, finished with a space:
+// "# " heading, "## " subheading, "> " quote, "- " or "* " bulleted list,
+// "1. " numbered list. ⌘Z brings the typed marker back.
+const BLOCK_MARKERS = [
+  [/^#$/, 'h1'], [/^##$/, 'h2'], [/^>$/, 'quote'], [/^[-*+•]$/, 'ul'], [/^\d{1,3}[.)]$/, 'ol']
+];
+function markdownBlockKey(e, body, chId) {
+  if (markdownOff()) return false;
+  if (e.key !== ' ' || e.metaKey || e.ctrlKey || e.altKey) return false;
+  const sel = window.getSelection();
+  if (!sel.rangeCount || !sel.isCollapsed) return false;
+  const block = caretBlock(body);
+  if (!block || block.classList.contains('scene-break')) return false;
+  const r = sel.getRangeAt(0);
+  const at = flatOffset(block, r.startContainer, r.startOffset);
+  if (at < 1 || at > 4) return false;
+  const hit = BLOCK_MARKERS.find(([re]) => re.test(block.textContent.slice(0, at)));
+  if (!hit) return false;
+  e.preventDefault();
+  snapshotStructure('paragraph style');
+  setParaFormat(block, hit[1]);
+  const a = flatPoint(block, 0), b = flatPoint(block, at);
+  if (a && b) {
+    const cut = document.createRange();
+    cut.setStart(a[0], a[1]);
+    cut.setEnd(b[0], b[1]);
+    cut.deleteContents();
+  }
+  if (!block.textContent) block.innerHTML = '<br>';
+  placeCaret(block, 0);
+  syncChapter(body, chId);
+  resetNativeUndo();
+  breakRun++;
+  return true;
 }
 
 // Backspace just below a *** (or Delete just above one) removes the break
@@ -4215,11 +4506,12 @@ function dropJunkSpans(html) {
 const OPENING_DASH = /^\s*[-‐‑‒–—―]/;
 // A chapter's opening paragraph — the one with the drop cap and no indent —
 // is its first paragraph with words in it, past a blank line or a *** at the
-// top (the exports skip those too). Poetry stands apart. In an empty
+// top (the exports skip those too). Poetry, headings, quotes and lists stand
+// apart. In an empty
 // chapter it's the paragraph waiting for the first word. Marked data-first,
 // for the screen only.
 function openingPara(body) {
-  const ps = [...body.children].filter((p) => p.tagName === 'P' && !p.classList.contains('poetry') && !p.classList.contains('scene-break') && !p.classList.contains('ghost'));
+  const ps = [...body.children].filter((p) => p.tagName === 'P' && !p.classList.contains('poetry') && !p.classList.contains('scene-break') && !p.classList.contains('ghost') && !p.dataset.fmt);
   return ps.find((p) => p.textContent.trim() !== '') || ps[0] || null;
 }
 function markDialogueOpening(body) {
@@ -4245,7 +4537,6 @@ function syncChapter(body, chId) {
 
 // Heal text-node fragmentation in each paragraph as the caret leaves it:
 let lastCaretPara = null;
-let capOffBody = null;
 let menuPoetryState = false;
 let menuFlushState = false;
 document.addEventListener('selectionchange', () => {
@@ -4276,7 +4567,6 @@ document.addEventListener('selectionchange', () => {
     const ch = caretP.closest('.chapter');
     if (ch) scanSpellingIn(ch.querySelector('.chapter-body'), ch.dataset.id);
   }
-  // the drop cap steps aside while the caret is in the first paragraph
   const inPoetry = !!(caretP && caretP.classList.contains('poetry'));
   if (inPoetry !== menuPoetryState && window.neo.poetryState) {
     menuPoetryState = inPoetry;
@@ -4286,15 +4576,6 @@ document.addEventListener('selectionchange', () => {
   if (inFlush !== menuFlushState && window.neo.flushState) {
     menuFlushState = inFlush;
     window.neo.flushState(inFlush);
-  }
-  const inFirst = caretP && caretP.parentElement &&
-    caretP.hasAttribute('data-first');
-  const capBody = inFirst ? caretP.parentElement : null;
-  if (capBody !== capOffBody) {
-    if (capOffBody && capOffBody.isConnected) capOffBody.classList.remove('cap-off');
-    if (capBody) capBody.classList.add('cap-off');
-    capOffBody = capBody;
-    queueSoftHyphenTicks(); // the first lines wrap anew around the cap
   }
 });
 
@@ -4319,12 +4600,17 @@ function caretEdges(body) {
 }
 
 // Reduce pasted HTML to what a manuscript is made of: paragraphs, bold,
-// italic. Word, Apple Notes, Google Docs and browsers each dress a
-// paragraph differently — <p>, <div>, a line break inside a block, styled
-// spans — so every block boundary and <br> becomes a paragraph break, and
-// styling that only lives in a style attribute is read as bold/italic.
+// italic, underline, strikethrough, and the paragraph styles (headings,
+// quotes, lists, section breaks). Word, Apple Notes, Google Docs and
+// browsers each dress a paragraph differently — <p>, <div>, a line break
+// inside a block, styled spans — so every block boundary and <br> becomes
+// a paragraph break, and styling that only lives in a style attribute is
+// read as bold/italic.
 // dashes: { style, ...caretEdges } sets dialogue dashes, for the manuscript.
-function cleanPasteHtml(html, dashes) {
+// fmt: keep paragraph styles (the manuscript has them; Notes doesn't).
+const PASTE_FMT = { h1: '\uE011', h2: '\uE012', quote: '\uE013', ul: '\uE014', ol: '\uE015' };
+const PASTE_BREAK = '\uE016'; // a *** section break
+function cleanPasteHtml(html, dashes, fmt) {
   // parsed off to the side: nothing in a clipboard loads or runs
   const holder = new DOMParser().parseFromString(html, 'text/html').body;
   holder.querySelectorAll('script,style,meta,link,img,head,title').forEach((n) => n.remove());
@@ -4343,6 +4629,40 @@ function cleanPasteHtml(html, dashes) {
     if (ital) { const i = document.createElement('i'); while (sp.firstChild) i.appendChild(sp.firstChild); sp.appendChild(i); }
     // (underline and strikethrough in a style are read by paraRuns)
   });
+  if (fmt) {
+    // Word marks its list and quote paragraphs with classes, and types the
+    // bullet or number itself into a span it tells other apps to ignore
+    holder.querySelectorAll('p[class*="MsoList"], p[class*="Quote"]').forEach((p) => {
+      if (/Quote/.test(p.className)) { p.dataset.pasteFmt = 'quote'; return; }
+      const bullet = p.querySelector('[style*="mso-list:ignore" i], [style*="mso-list: ignore" i]');
+      p.dataset.pasteFmt = bullet && /\d/.test(bullet.textContent) ? 'ol' : 'ul';
+      if (bullet) bullet.remove();
+    });
+    // Each piece of text learns the paragraph style of the block it sits in,
+    // carried as an invisible mark until the paragraphs are rebuilt below.
+    // The innermost block decides: a list inside a quote is a list.
+    const styleOf = (el) => {
+      const b = el.closest('h1, h2, h3, h4, h5, h6, li, blockquote, [data-paste-fmt], [data-fmt]');
+      if (!b) return '';
+      if (b.dataset.pasteFmt) return b.dataset.pasteFmt;
+      if (b.dataset.fmt) return b.dataset.fmt; // copied from NEO itself
+      if (b.tagName === 'LI') { const list = b.closest('ol, ul'); return list && list.tagName === 'OL' ? 'ol' : 'ul'; }
+      if (b.tagName === 'BLOCKQUOTE') return 'quote';
+      return b.tagName === 'H1' ? 'h1' : 'h2';
+    };
+    const tw = document.createTreeWalker(holder, NodeFilter.SHOW_TEXT);
+    const texts = [];
+    while (tw.nextNode()) texts.push(tw.currentNode);
+    for (const n of texts) {
+      const style = n.data.trim() && styleOf(n.parentElement);
+      if (PASTE_FMT[style]) n.data = PASTE_FMT[style] + n.data;
+    }
+    // a horizontal rule, or a *** copied out of NEO, is a section break
+    holder.querySelectorAll('hr, p.scene-break').forEach((n) => n.replaceWith(document.createTextNode('\uE000' + PASTE_BREAK + '\uE000')));
+  }
+  // a heading's size and weight belong to its style, not to its words
+  // (NEO's own copies spell out every computed style on each paragraph)
+  holder.querySelectorAll('h1, h2, h3, h4, h5, h6, p[data-fmt]').forEach((h) => h.removeAttribute('style'));
   // a break marker at every block edge and every line break
   const BREAK = '\uE000';
   // (a table's cells are paragraphs too: a letter or a sign set in a table
@@ -4365,8 +4685,12 @@ function cleanPasteHtml(html, dashes) {
   }
   const filled = paras.map((runs) => runs.some((r) => r.mark === undefined && r.fn === undefined && r.text.trim()));
   const out = paras.map((runs, n) => {
+    const plain = runs.filter((r) => r.mark === undefined && r.fn === undefined).map((r) => r.text).join('');
+    if (plain.trim() === PASTE_BREAK) return '<p class="scene-break">***</p>';
+    const styled = plain.match(/[\uE011-\uE015]/);
+    const style = styled ? Object.keys(PASTE_FMT).find((k) => PASTE_FMT[k] === styled[0]) : '';
     // whitespace collapses like HTML's, and each paragraph is trimmed
-    runs = runs.map((r) => (r.mark !== undefined || r.fn !== undefined ? r : { ...r, text: r.text.replace(/\s+/g, ' ') }));
+    runs = runs.map((r) => (r.mark !== undefined || r.fn !== undefined ? r : { ...r, text: r.text.replace(/[\uE011-\uE016]/g, '').replace(/\s+/g, ' ') }));
     // (one space is kept where the clipboard's words meet the line's own,
     // mid-line: "the " + "big" + " dog" doesn't fuse into "thebigdog")
     const first = runs.find((r) => r.mark === undefined && r.fn === undefined);
@@ -4394,10 +4718,87 @@ function cleanPasteHtml(html, dashes) {
       if (!r.text) return '';
       return runHtml(r);
     }).join('');
-    return inner.replace(/<[^>]+>/g, '').trim() || inner.includes('class="fn"') ? '<p>' + inner + '</p>' : '';
+    return inner.replace(/<[^>]+>/g, '').trim() || inner.includes('class="fn"') ? `<p${style ? ` data-fmt="${style}"` : ''}>` + inner + '</p>' : '';
   }).filter(Boolean);
-  // single block pastes inline (no forced new paragraph)
-  if (out.length === 1) return out[0].slice(3, -4);
+  // a single plain paragraph pastes inline (no forced new paragraph)
+  if (out.length === 1 && out[0].startsWith('<p>')) return out[0].slice(3, -4);
+  return out.join('');
+}
+
+// Does a rich copy carry real formatting, or is it just colored text?
+function richFormatting(html) {
+  const holder = new DOMParser().parseFromString(html, 'text/html').body;
+  return !!holder.querySelector('p, h1, h2, h3, h4, h5, h6, li, blockquote, b, strong, i, em, u, s, strike, del, [class*="Mso"], [id^="docs-internal"]');
+}
+
+// Where a line opening with a hyphen is speech (— Olá, —Hola), "- " is
+// dialogue, not a bulleted list
+const hyphenIsSpeech = () => DIALOGUE_DASHES.en !== dashStyle();
+
+// Does plain text read as Markdown? Any heading, quote, list, fence or
+// rule line, or any **bold**, __bold__, *italic*, _italic_, ~~struck~~ or
+// [link](url) will do.
+function looksLikeMarkdown(text) {
+  const bullets = hyphenIsSpeech() ? '[*+]' : '[-*+]';
+  return new RegExp([
+    `^ {0,3}(#{1,6}\\s+\\S|>\\s?\\S|${bullets}\\s+\\S|\\d{1,3}[.)]\\s+\\S|\`\`\`|~~~)`,
+    /^ {0,3}(?:-(?: *-){2,}|\*(?: *\*){2,}|_(?: *_){2,}) *$/.source,
+    /\*\*[^*\s][^*\n]*\*\*|__[^_\s][^_\n]*__|~~[^~\s][^~\n]*~~/.source,
+    /(^|[\s(])\*[^*\s][^*\n]*?\*(?=[\s.,;:!?)]|$)|(^|[\s(])_[^_\s][^_\n]*?_(?=[\s.,;:!?)]|$)/.source,
+    /\[[^\]\n]+\]\([^)\s]+\)/.source
+  ].join('|'), 'm').test(text);
+}
+
+// Markdown to the HTML cleanPasteHtml already understands. Each line is a
+// paragraph, the way NEO pastes plain text. Links keep their words, images
+// and code fences drop their markup, tables stay as text.
+function markdownToHtml(md) {
+  const inline = (line) => {
+    const code = [];
+    let s = line.replace(/`([^`]+)`/g, (_, c) => { code.push(c); return '' + (code.length - 1) + ''; });
+    s = escHtml(s)
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+      .replace(/(^|[^\\])(\*\*\*|___)(?=\S)(.*?\S)\2/g, '$1<b><i>$3</i></b>')
+      .replace(/(^|[^\\])(\*\*|__)(?=\S)(.*?\S)\2/g, '$1<b>$3</b>')
+      .replace(/(^|[^\\*\w])\*(?=[^\s*])(.*?[^\s*\\])\*(?![*\w])/g, '$1<i>$2</i>')
+      .replace(/(^|[^\\_\w])_(?=[^\s_])(.*?[^\s_\\])_(?![_\w])/g, '$1<i>$2</i>')
+      .replace(/(^|[^\\])~~(?=\S)(.*?\S)~~/g, '$1<s>$2</s>')
+      .replace(/&lt;u&gt;(.*?)&lt;\/u&gt;/g, '<u>$1</u>')
+      .replace(/\\([\\`*_{}[\]()#+\-.!~>|])/g, '$1');
+    return s.replace(/(\d+)/g, (_, i) => escHtml(code[i]));
+  };
+  const bulletRe = hyphenIsSpeech() ? /^[*+•]\s+(?:\[[ xX]\]\s+)?(.*)$/ : /^[-*+•]\s+(?:\[[ xX]\]\s+)?(.*)$/;
+  const out = [];
+  let list = null;
+  let fence = false;
+  const endList = () => { if (list) { out.push(`</${list}>`); list = null; } };
+  for (const raw of md.replace(/\r/g, '').split('\n')) {
+    if (/^\s*(```|~~~)/.test(raw)) { fence = !fence; continue; }
+    const line = raw.trim();
+    if (!line) { endList(); continue; }
+    if (fence) { endList(); out.push('<p>' + escHtml(line) + '</p>'); continue; }
+    let m;
+    if (/^([-*_])( *\1){2,}$/.test(line)) { endList(); out.push('<hr>'); continue; }
+    if ((m = /^(#{1,6})\s+(.*?)(\s+#+)?$/.exec(line))) {
+      endList();
+      const h = m[1].length === 1 ? 'h1' : 'h2';
+      out.push(`<${h}>${inline(m[2])}</${h}>`);
+      continue;
+    }
+    if ((m = /^(?:>\s?)+(.*)$/.exec(line))) { endList(); out.push(`<blockquote>${inline(m[1])}</blockquote>`); continue; }
+    const bullet = bulletRe.exec(line);
+    const number = !bullet && /^\d{1,3}[.)]\s+(.*)$/.exec(line);
+    if (bullet || number) {
+      const kind = bullet ? 'ul' : 'ol';
+      if (list !== kind) { endList(); out.push(`<${kind}>`); list = kind; }
+      out.push(`<li>${inline((bullet || number)[1])}</li>`);
+      continue;
+    }
+    endList();
+    out.push(`<p>${inline(line)}</p>`);
+  }
+  endList();
   return out.join('');
 }
 
@@ -4922,7 +5323,7 @@ function frenchTypography() {
 // Manuscript → Notes → Outline → Darlings, round again. Caught here, like the
 // chapter keys, so no menu accelerator flashes the menu or takes AltGr input.
 function goToTab(name) {
-  if (!book || $('#editor-view').hidden || name === currentTab) return;
+  if (!book || $('#editor-view').hidden || name === currentTab || !featureOn(name)) return;
   if (document.querySelector('.modal-backdrop:not([hidden])')) return;
   switchTab(name);
 }
@@ -4934,8 +5335,10 @@ window.addEventListener('keydown', (e) => {
   if ($('#editor-view').hidden || document.querySelector('.modal-backdrop:not([hidden])')) return;
   e.preventDefault();
   e.stopPropagation();
-  const step = e.key === 'ArrowRight' ? 1 : TAB_ORDER.length - 1;
-  goToTab(TAB_ORDER[(TAB_ORDER.indexOf(currentTab) + step) % TAB_ORDER.length]);
+  // (past any tab that's turned off)
+  const shown = TAB_ORDER.filter((x) => featureOn(x));
+  const step = e.key === 'ArrowRight' ? 1 : shown.length - 1;
+  goToTab(shown[(Math.max(0, shown.indexOf(currentTab)) + step) % shown.length]);
 }, true);
 
 // Titles, outline lines, notes and shelf names get the same typography as
@@ -5042,24 +5445,24 @@ document.addEventListener('keydown', (e) => {
   const cmd = e.metaKey || e.ctrlKey;
   if (cmd && e.shiftKey && e.code === 'KeyX') {
     e.preventDefault();
-    if (currentTab === 'manuscript') insertPlaceholder();
+    if (currentTab === 'manuscript' && featureOn('placeholders')) insertPlaceholder();
   }
   if (cmd && e.shiftKey && e.code === 'KeyD') {
     e.preventDefault();
-    if (currentTab === 'manuscript') darlingFromKeyboard();
+    if (currentTab === 'manuscript' && featureOn('darlings')) darlingFromKeyboard();
   }
   if (cmd && e.shiftKey && !e.altKey && e.code === 'KeyN') {
     e.preventDefault();
-    if (currentTab === 'manuscript' && !fnBox && moreOn()) insertFootnote();
+    if (currentTab === 'manuscript' && !fnBox && moreOn() && featureOn('footnotes')) insertFootnote();
   }
   // ⌘S takes a snapshot of the book (SNAPSHOTS)
   if (cmd && !e.altKey && !e.shiftKey && (e.code === 'KeyS' || e.key === 's')) {
     e.preventDefault();
-    snapshotNow();
+    if (featureOn('snapshots')) snapshotNow();
   }
   if (isSpellcheckShortcut(e)) {
     e.preventDefault();
-    toggleSpellcheck();
+    if (featureOn('spellcheck')) toggleSpellcheck();
   }
   if (e.key === 'Escape') {
     // an input method's Esc cancels its own composition, nothing more
@@ -8429,7 +8832,7 @@ async function notesPageToDarlings(chId, label) {
 /* ================================================================== */
 
 $$('.tab').forEach((tab) => {
-  tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+  tab.addEventListener('click', () => { if (featureOn(tab.dataset.tab)) switchTab(tab.dataset.tab); });
   tab.addEventListener('dblclick', async () => {
     const kind = tab.dataset.tab;
     if (kind !== 'notes' && kind !== 'outline') return;
@@ -8542,6 +8945,8 @@ async function moveSelectionToDarlings(html, text) {
 
   let anchorPrefix = null;
   let anchorSuffix = null;
+  let wholePara = false; // a whole paragraph went, so it comes back as one
+  let wholeFmt = ''; // with its paragraph style
   if (range) {
     const startNode = range.startContainer.nodeType === Node.TEXT_NODE ? range.startContainer.parentElement : range.startContainer;
     const startBlock = startNode && startNode.closest ? startNode.closest('p') : null;
@@ -8552,7 +8957,9 @@ async function moveSelectionToDarlings(html, text) {
         && startBlock.parentElement && startBlock.parentElement.children.length > 1) {
       const prev = startBlock.previousElementSibling;
       const next = startBlock.nextElementSibling;
+      wholeFmt = startBlock.dataset.fmt || '';
       startBlock.remove();
+      wholePara = true;
       if (prev) { range.selectNodeContents(prev); range.collapse(false); }
       else if (next) { range.selectNodeContents(next); range.collapse(true); }
     }
@@ -8582,8 +8989,9 @@ async function moveSelectionToDarlings(html, text) {
   // keep only the prose (paragraphs when the drag spanned more than one)
   let cleanHtml = null;
   if (html) {
-    const cleaned = cleanPasteHtml(html);
-    cleanHtml = /\n/.test(text.trim()) && !/<p[\s>]/i.test(cleaned) ? '<p>' + cleaned + '</p>' : cleaned;
+    const cleaned = cleanPasteHtml(html, undefined, true);
+    cleanHtml = (wholePara || /\n/.test(text.trim())) && !/<p[\s>]/i.test(cleaned)
+      ? `<p${wholeFmt ? ` data-fmt="${wholeFmt}"` : ''}>` + cleaned + '</p>' : cleaned;
   }
   darlings.unshift({
     id: did,
@@ -8684,6 +9092,8 @@ function switchTab(name) {
   }
   if (book && !notesPageOk(notesPage)) notesPage = 'book';
   currentTab = name;
+  discordUpdate();
+  syncPaneLayout();
   sidePaneForTab(name);
   queueSideCards();
   applyBright();
@@ -12018,12 +12428,22 @@ async function restoreDarling(id) {
       if (at) {
         let scrollTo = at.startContainer.parentElement?.closest?.('p') || body;
         if (d.html && /<p[\s>]/i.test(d.html)) {
-          // block content: paragraphs go back in after the host paragraph
+          // block content: paragraphs go back in after the host paragraph,
+          // or before it when the cut was at its very start (the book's
+          // opening paragraph, cut whole, leaves the spot before the next)
           const holder = document.createElement('div');
           holder.innerHTML = d.html;
           let ref = scrollTo === body ? body.lastElementChild : scrollTo;
+          let before = false;
+          if (scrollTo !== body && scrollTo.textContent.trim()) {
+            const head = document.createRange();
+            head.setStart(scrollTo, 0);
+            head.setEnd(at.startContainer, at.startOffset);
+            before = !head.toString().trim();
+          }
           scrollTo = holder.firstElementChild || scrollTo;
-          for (const n of [...holder.childNodes]) { ref.after(n); ref = n; }
+          if (before) for (const n of [...holder.childNodes]) ref.before(n);
+          else for (const n of [...holder.childNodes]) { ref.after(n); ref = n; }
         } else {
           // inline content: slot it right where the caret was
           at.insertNode(document.createRange().createContextualFragment(d.html || d.text));
@@ -12088,7 +12508,7 @@ function updateCounters() {
     const before = typeof book.wordCount === 'number' ? book.wordCount : total;
     book.wordCount = total;
     scheduleMetaSave();
-    if (before < PAINT_AT && total >= PAINT_AT && !(library.coverArt && library.coverArt.auto === false) && paintable(book)) {
+    if (before < PAINT_AT && total >= PAINT_AT && featureOn('coverArt') && !(library.coverArt && library.coverArt.auto === false) && paintable(book)) {
       requestPaint(book, bookPlainText());
     }
   }
@@ -12145,18 +12565,30 @@ function nextDayCount(entry, total, seen) {
   if (!entry) return { start: total, end: total };
   let words = dayWords(entry);
   if (typeof seen === 'number') words = Math.max(0, words + total - seen);
-  return { start: total - words, end: total };
+  return withSet({ start: total - words, end: total }, entry.set);
+}
+// A day's count the writer set by hand (Goals → today; 0 resets it) keeps
+// when it was set, so the other device's older, larger tally doesn't bring
+// the old number back. What's typed after it counts on top as usual.
+const withSet = (e, set) => (Number.isFinite(set) ? { ...e, set } : e);
+function setDayCount(total, words, at) {
+  return { start: total - Math.max(0, Math.round(words) || 0), end: total, set: at };
 }
 // another device's days, from its book.json: a day it saw more written in
-// keeps that tally, against this device's own count
+// keeps that tally, against this device's own count. A day set by hand on
+// either side goes by the newest setting.
 function mergeDayCounts(ours, theirs) {
   const out = { ...(ours || {}) };
   if (!theirs || typeof theirs !== 'object') return out;
   for (const [day, e] of Object.entries(theirs)) {
     if (!e || !Number.isFinite(e.start) || !Number.isFinite(e.end)) continue;
     const mine = out[day];
-    if (!mine || !Number.isFinite(mine.end)) out[day] = { start: e.start, end: e.end };
-    else if (dayWords(e) > dayWords(mine)) out[day] = { start: mine.end - dayWords(e), end: mine.end };
+    const theirSet = Number.isFinite(e.set) ? e.set : 0;
+    const mySet = mine && Number.isFinite(mine.set) ? mine.set : 0;
+    if (!mine || !Number.isFinite(mine.end)) out[day] = withSet({ start: e.start, end: e.end }, e.set);
+    else if (theirSet > mySet) out[day] = withSet({ start: mine.end - dayWords(e), end: mine.end }, e.set);
+    else if (theirSet < mySet) continue;
+    else if (dayWords(e) > dayWords(mine)) out[day] = withSet({ start: mine.end - dayWords(e), end: mine.end }, mine.set);
   }
   return out;
 }
@@ -12179,6 +12611,8 @@ function trackDailyWords(total) {
   const was = book.dailyCounts[today];
   const seen = daySeen && daySeen.bookId === book.id ? daySeen.total : undefined;
   const now = nextDayCount(was, total, seen);
+  // the words typed (or cut) since the book was opened, for Discord
+  if (discordSession && discordSession.bookId === book.id && seen !== undefined) discordSession.words += total - seen;
   daySeen = { bookId: book.id, total };
   book.dailyCounts[today] = now;
   // a new day, or the writer's cut moving where it began, is saved now; the
@@ -12186,7 +12620,12 @@ function trackDailyWords(total) {
   if (!was || (seen !== undefined && total !== seen && now.start !== was.start)) scheduleMetaSave();
   if (sprint && sprint.bookId !== book.id) sprint = null; // a sprint belongs to the book it began in
   if (sprint && total < sprint.startCount) sprint.startCount = total;
-  const wordsToday = Math.max(0, book.dailyCounts[today].end - book.dailyCounts[today].start);
+  showWordsToday(total);
+}
+// the bottom bar's count: the sprint's while one runs, else today's
+function showWordsToday(total = bookWordCount()) {
+  const wordsToday = dayWords(book.dailyCounts[todayStr()]);
+  discordUpdate();
   const gc = $('#goal-counter');
   if (sprint && !sprint.done) {
     const sprintWords = total - sprint.startCount;
@@ -12202,6 +12641,18 @@ function trackDailyWords(total) {
       : t('{n} today', { n: wordsToday }));
     gc.classList.toggle('goal-met', goal > 0 && wordsToday >= goal);
   }
+}
+
+// The writer's own number for today (Goals: the count typed over, or Reset).
+// From here, typing counts on top of it.
+function setWordsToday(words) {
+  if (!book) return;
+  const total = bookWordCount();
+  book.dailyCounts = book.dailyCounts || {};
+  book.dailyCounts[todayStr()] = setDayCount(total, words, Date.now());
+  daySeen = { bookId: book.id, total };
+  scheduleMetaSave();
+  showWordsToday(total);
 }
 
 // Pages, the way a manuscript counts them: 250 words to a page. The page
@@ -13876,7 +14327,7 @@ document.addEventListener('keydown', (e) => {
   // on Linux, Ctrl+Shift+U belongs to the input method (it types a Unicode
   // character by its code), so Read Aloud there is Ctrl+Shift+K (#287)
   if (cmd && e.shiftKey && !e.altKey && e.code === (IS_LINUX ? 'KeyK' : 'KeyU')) {
-    if (!book || $('#editor-view').hidden || !moreOn()) return;
+    if (!book || $('#editor-view').hidden || !moreOn() || !featureOn('readAloud')) return;
     e.preventDefault();
     e.stopPropagation();
     toggleReadAloud();
@@ -14196,9 +14647,10 @@ const escAttr = (s) => escHtml(s).replace(/"/g, '&quot;');
 // and by dropping files from Finder straight onto a shelf.
 async function addImportedBooks(results, shelf) {
   // a Fountain or Final Draft file is a script: behind Show More Features
-  if (!moreOn()) {
+  // (and Customize NEO's Screenplays)
+  if (!moreOn() || !featureOn('scripts')) {
     results = results.filter((r) => !r.script);
-    if (!results.length) { toast(t('No .docx, .txt, or .md files in that drop')); return; }
+    if (!results.length) { toast(t('Nothing in that drop NEO can import')); return; }
   }
   shelf = shelf || shelvesFor(currentAuthor().id)[0] || library.shelves[0];
   let ok = 0;
@@ -14242,13 +14694,29 @@ async function addImportedBooks(results, shelf) {
   else if (scripts) toast(t('{n} scripts imported onto “{shelf}”', { n: scripts, shelf: shelf.name }), 6000);
 }
 
-// One imported chapter's paragraphs as a chapter body
+// One imported chapter's paragraphs as a chapter body, each with its
+// paragraph style (a heading, a quote, a list item) where it had one
+const IMPORT_FMTS = ['h1', 'h2', 'quote', 'ul', 'ol'];
 function importedChapterHTML(ch) {
   return ch.paras.map((p) => {
     if (p.scene) return '<p class="scene-break">***</p>';
+    const fmt = IMPORT_FMTS.includes(p.fmt) ? ` data-fmt="${p.fmt}"` : '';
     // hyphens set as dialogue dashes, the same as typing them
-    return `<p>${importedEmphasis(escHtml(dialogueDashes(p.text || '', dashStyle())))}</p>`;
+    return `<p${fmt}>${importedEmphasis(escHtml(dialogueDashes(p.text || '', dashStyle())))}</p>`;
   }).join('') || '<p><br></p>';
+}
+
+// the documents import reads (main.js and importers.js read them)
+const IMPORT_FILE = /\.(docx|txt|md|markdown|text|html?|xhtml|epub|odt|pdf|rtf|doc|webarchive|gdoc)$/i;
+
+// File → Import from a Link…: a Google Doc (shared as "Anyone with the
+// link"), a file on Google Drive, or any web page, as a book on the shelf
+async function importFromLink() {
+  const url = await askInput(t('Import from a link'), t('A Google Doc, a file on Google Drive, or a web page: https://…'), '');
+  if (!url || !url.trim()) return;
+  toast(t('Importing…'));
+  const results = await window.neo.importUrl(url.trim());
+  if (results.length) await addImportedBooks(results, shelvesFor(currentAuthor().id)[0] || library.shelves[0]);
 }
 
 // Files brought into the open book as chapters (#178), before the chapter
@@ -14307,8 +14775,8 @@ async function importChaptersIntoBook(results, beforeId) {
 async function importDroppedChapters(files, beforeId) {
   const paths = [...files]
     .map((f) => { try { return window.neo.pathForFile(f); } catch { return null; } })
-    .filter((p) => p && /\.(docx|txt|md)$/i.test(p));
-  if (!paths.length) { toast(t('No .docx, .txt, or .md files in that drop')); return; }
+    .filter((p) => p && IMPORT_FILE.test(p));
+  if (!paths.length) { toast(t('Nothing in that drop NEO can import')); return; }
   const bookId = book.id;
   toast(t('Importing…'));
   const results = await window.neo.importFiles(paths);
@@ -14870,7 +15338,7 @@ function reportViewState() {
   if (!window.neo.viewState || !library) return;
   const payload = {
     focus: focusLevel,
-    pageTheme: library.pageTheme || 'night',
+    pageTheme: library.pageTheme || 'auto',
     uiBright: document.body.classList.contains('bright'),
     bodyFont: (library.fonts && library.fonts.body) || '',
     dropCap: (library.fonts && library.fonts.dropcap) || 'literary',
@@ -15009,11 +15477,11 @@ function statsChartSvg() {
     days.push(writingDay(d));
   }
   const counts = book.dailyCounts || {};
-  const daily = days.map((d) => counts[d] ? Math.max(0, counts[d].end - counts[d].start) : 0);
+  const daily = days.map((d) => dayWords(counts[d]));
   // cumulative: carry the last known total forward
   let last = 0;
   const firstKnown = days.find((d) => counts[d]);
-  if (firstKnown) last = counts[firstKnown].start;
+  if (firstKnown) last = Math.max(0, counts[firstKnown].start); // a count set by hand can start below zero
   const cumulative = days.map((d) => {
     if (counts[d]) last = counts[d].end;
     return last;
@@ -15167,8 +15635,8 @@ function hourLabel(h) {
 
 function openStats() {
   const hasBook = !!book;
-  const today = hasBook ? (book.dailyCounts || {})[todayStr()] : null;
-  const wordsToday = today ? Math.max(0, today.end - today.start) : 0;
+  const bookId = hasBook ? book.id : null;
+  const wordsToday = hasBook ? dayWords((book.dailyCounts || {})[todayStr()]) : 0;
   const total = hasBook ? bookWordCount() : 0;
   const bd = document.createElement('div');
   bd.className = 'modal-backdrop';
@@ -15178,7 +15646,7 @@ function openStats() {
       ${hasBook ? `
       <div class="stats-nums">
         <div><div class="big">${fmtNum(total)}</div><div class="lbl">${t('total words')}</div></div>
-        <div><div class="big">${fmtNum(wordsToday)}</div><div class="lbl">${t('today')}</div></div>
+        <div class="st-today"><input id="st-today" class="big" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" value="${fmtNum(wordsToday)}" title="${escHtml(t('Type over it to change today’s count')).replace(/"/g, '&quot;')}" aria-label="${escHtml(t('Words written today')).replace(/"/g, '&quot;')}"/><div class="lbl">${t('today')}<button id="st-today-reset" type="button">${t('Reset')}</button></div></div>
         <div><div class="big">${book.wordGoal ? Math.min(100, Math.round(total / book.wordGoal * 100)) + '%' : '—'}</div><div class="lbl">${t('of book goal')}</div></div>
       </div>
       ${statsChartSvg()}` : ''}
@@ -15208,6 +15676,9 @@ function openStats() {
     library.dayEndsAt = parseInt(bd.querySelector('#st-dayends').value, 10) || 0;
     if (hasBook) {
       book.wordGoal = parseInt(bd.querySelector('#st-book').value, 10) || 0;
+      // today's count, if the writer typed over it (digits only: 1,200 is 1200)
+      const typed = bd.querySelector('#st-today').value.replace(/\D/g, '');
+      if (typed !== String(wordsToday) && book && book.id === bookId) setWordsToday(parseInt(typed || '0', 10));
       scheduleMetaSave();
     }
     await writeLibrary(library);
@@ -15222,6 +15693,10 @@ function openStats() {
   bd.focus();
   bd.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } });
   if (hasBook) {
+    const todayField = bd.querySelector('#st-today');
+    todayField.addEventListener('focus', () => todayField.select());
+    todayField.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); close(); } });
+    bd.querySelector('#st-today-reset').onclick = () => { todayField.value = '0'; todayField.focus(); };
     bd.querySelector('#st-sprint-btn').onclick = () => {
       if (sprint && !sprint.done) {
         const got = bookWordCount() - sprint.startCount;
@@ -15237,7 +15712,7 @@ function openStats() {
   }
 }
 
-$('#goal-counter').onclick = openStats;
+$('#goal-counter').onclick = () => { if (featureOn('goals')) openStats(); };
 
 /* ================================================================== */
 /*  MENU: Help + fonts                                                 */
@@ -15278,9 +15753,10 @@ function applyFonts() {
     document.documentElement.style.setProperty('--dropcap-font', DROPCAP_FONTS[f.dropcap]);
   }
   document.body.classList.toggle('no-dropcap', f.dropcap === 'none');
-  document.body.classList.toggle('night', library.pageTheme === 'night');
+  const theme = pageThemeNow();
+  document.body.classList.toggle('night', theme === 'night');
   // Light: the paper page in a light room, the whole app with it
-  document.body.classList.toggle('light', library.pageTheme === 'light');
+  document.body.classList.toggle('light', theme === 'light');
   // the system's "Increase contrast" turns it on too, until the writer
   // chooses in the View menu
   applyBright();
@@ -15294,6 +15770,17 @@ function applyFonts() {
   applyPageZoom();
   queueSoftHyphenTicks(); // another face can wrap the same lines differently
 }
+
+// View → Page. Automatic (this version's default) is a white page always,
+// in a room that follows the computer: Paper's dark room in dark mode,
+// Light's in light mode, changing when the computer does.
+const DARK_SCHEME = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+function pageThemeNow() {
+  const theme = library.pageTheme || 'auto';
+  if (theme !== 'auto') return theme;
+  return DARK_SCHEME && DARK_SCHEME.matches ? 'paper' : 'light';
+}
+if (DARK_SCHEME) DARK_SCHEME.addEventListener('change', () => { if (library && (library.pageTheme || 'auto') === 'auto') applyFonts(); });
 
 // A built-in choice, or a font the writer picked from their own computer.
 // A library opened where that font is missing simply reads in Georgia.
@@ -15504,23 +15991,34 @@ function shortcutSections() {
   return bookShortcutSections();
 }
 function bookShortcutSections() {
-  // the keys of features behind File → Show More Features show with them
+  // the keys of features behind File → Show More Features show with them,
+  // and those of a feature turned off in Customize NEO not at all
   const more = moreOn();
+  const on = (id, rows) => (featureOn(id) ? rows : []);
   return [
     { title: tk('Writing'), rows: [
       [tk('Enter ×2'), tk('Insert a section break')],
       [tk('Enter ×3'), tk('Start a new chapter')],
-      [K('⇧Enter', 'Shift+Enter'), tk('A paragraph with no indent'), tk('Again for another; Enter goes back to prose.')],
-      ...(more ? [[K('⌘⇧Enter', 'Ctrl+Shift+Enter'), tk('Start or continue a poetry paragraph'), tk('Also works from a chapter heading.')]] : []),
-      [KPH, tk('Insert a placeholder note')],
-      ...(more ? [[KFN, tk('Add a footnote'), tk('Type the note, then Enter to go back to writing. Click its number to change it.')]] : []),
-      [KDA, tk('Move selected text to Darlings')],
-      ...(more ? [[K('⌘⇧U', IS_LINUX ? 'Ctrl+Shift+K' : 'Ctrl+Shift+U'), tk('Read aloud from the cursor'), tk('Again, Esc or any key stops it. Uses your computer’s own voice.')]] : [])
+      ...on('flush', [[K('⇧Enter', 'Shift+Enter'), tk('A paragraph with no indent'), tk('Again for another; Enter goes back to prose.')]]),
+      ...on('poetry', more ? [[K('⌘⇧Enter', 'Ctrl+Shift+Enter'), tk('Start or continue a poetry paragraph'), tk('Also works from a chapter heading.')]] : []),
+      ...on('placeholders', [[KPH, tk('Insert a placeholder note')]]),
+      ...on('footnotes', more ? [[KFN, tk('Add a footnote'), tk('Type the note, then Enter to go back to writing. Click its number to change it.')]] : []),
+      ...on('darlings', [[KDA, tk('Move selected text to Darlings')]]),
+      ...on('readAloud', more ? [[K('⌘⇧U', IS_LINUX ? 'Ctrl+Shift+K' : 'Ctrl+Shift+U'), tk('Read aloud from the cursor'), tk('Again, Esc or any key stops it. Uses your computer’s own voice.')]] : [])
     ] },
     { title: tk('Formatting'), rows: [
-      ...(more ? [[['*…*', '**…**', '***…***'], tk('Italic, bold, the Markdown way'), tk('Typed around a word (or pasted). Undo right after keeps the asterisks. Format → Markdown Emphasis turns it off.')]] : []),
+      ...on('markdown', [[['*…*', '**…**', '***…***'], tk('Italic, bold, the Markdown way'), tk('Typed around a word (or pasted). Undo right after keeps the asterisks. Format → Markdown Emphasis turns it off.')]]),
       [K('⌘U', 'Ctrl+U'), tk('Underline')],
-      [K('⌘⇧S', 'Ctrl+Shift+S'), tk('Strikethrough'), more ? tk('Or ~~…~~ around the words.') : undefined],
+      [K('⌘⇧S', 'Ctrl+Shift+S'), tk('Strikethrough'), tk('Or ~~…~~ around the words.')],
+      ...on('paragraphStyles', [
+        [K('⌘⌥1', 'Ctrl+Alt+1'), tk('Heading'), tk('Or # and a space at the start of a line.')],
+        [K('⌘⌥2', 'Ctrl+Alt+2'), tk('Subheading'), tk('Or ## and a space.')],
+        [K('⌘⇧9', 'Ctrl+Shift+9'), tk('Block quote'), tk('Or > and a space.')],
+        [K('⌘⇧8', 'Ctrl+Shift+8'), tk('Bulleted list'), tk('Or - and a space.')],
+        [K('⌘⇧7', 'Ctrl+Shift+7'), tk('Numbered list'), tk('Or 1. and a space.')],
+        [K('⌘⌥0', 'Ctrl+Alt+0'), tk('Back to a normal paragraph')],
+        [K('⌘\\', 'Ctrl+\\'), tk('Clear formatting')]
+      ]),
       ...(more ? [
         [K('⌘⇧L', 'Ctrl+Shift+L'), tk('Align paragraph left')],
         [K('⌘⇧C', 'Ctrl+Shift+C'), tk('Center paragraph')],
@@ -15538,14 +16036,15 @@ function bookShortcutSections() {
     { title: tk('Editing'), rows: [
       [K('⌘⌥⇧V', 'Ctrl+Shift+V'), tk('Paste and match style')],
       [K('⌘F', 'Ctrl+F'), tk('Find and replace')],
-      [K('⌘;', 'Ctrl+;'), tk('Toggle spellcheck pass')]
+      ...on('spellcheck', [[K('⌘;', 'Ctrl+;'), tk('Toggle spellcheck pass')]])
     ] },
     { title: tk('App & files'), rows: [
+      [[K('⌘⇧B', 'Ctrl+Shift+B'), 'Esc'], tk('Back to the bookshelf'), tk('Esc first closes the find bar or leaves full screen.')],
       [KHELP, tk('Keyboard shortcuts')],
-      [K('⌘S', 'Ctrl+S'), tk('Take a snapshot of the book'), tk('NEO saves as you type; a snapshot keeps the book as it stands now. They’re on the Darlings tab.')],
-      [K('⌘,', 'Ctrl+,'), tk('Goals and writing sprints')],
+      ...on('snapshots', [[K('⌘S', 'Ctrl+S'), tk('Take a snapshot of the book'), tk('NEO saves as you type; a snapshot keeps the book as it stands now. They’re on the Darlings tab.')]]),
+      ...on('goals', [[K('⌘,', 'Ctrl+,'), tk('Goals and writing sprints')]]),
       [K('⌘⇧I', 'Ctrl+Shift+I'), tk('Import manuscripts')],
-      [K('⌘E', 'Ctrl+E'), tk('Email a draft to yourself')]
+      ...on('email', [[K('⌘E', 'Ctrl+E'), tk('Email a draft to yourself')]])
     ] },
     { title: tk('View & window'), rows: [
       [[K('⌘⇧F', 'Ctrl+Shift+F'), K('⌘Enter', 'Ctrl+Enter'), ...(IS_MAC ? [] : ['F11'])], tk('Toggle full screen')],
@@ -15656,7 +16155,8 @@ function safeName(s) {
 }
 
 // Every paragraph is rebuilt from its text runs, so exports carry only
-// author-meaningful markup: text, bold, italic, alignment, scene breaks.
+// author-meaningful markup: text, bold, italic, underline, strikethrough,
+// alignment, paragraph styles, scene breaks.
 // Stray spans, inline styles, trailing <br>s, and the no-break spaces the
 // old engine planted all stop at this door (healStrayNbsp); the writer's
 // own no-break spaces go through.
@@ -15670,10 +16170,11 @@ function parasFromHtml(html) {
     if (brk) brk.remove();
   });
   holder.querySelectorAll('.darling-anchor, .ph-mark, .ghost').forEach((n) => n.remove());
-  return [...holder.querySelectorAll('p')].map((p) => {
+  const paras = [...holder.querySelectorAll('p')].map((p) => {
     const sceneBreak = p.classList.contains('scene-break');
-    const poetry = p.classList.contains('poetry');
-    const flush = !poetry && p.classList.contains('flush');
+    const fmt = (!sceneBreak && p.dataset.fmt) || '';
+    const poetry = !fmt && p.classList.contains('poetry');
+    const flush = !fmt && !poetry && p.classList.contains('flush');
     const align = (p.style && p.style.textAlign) || '';
     const runs = paraRuns(p.innerHTML, true).filter((r) => r.text || r.fn !== undefined);
     const inner = runs.map((r) => runHtml(r)).join('');
@@ -15682,12 +16183,20 @@ function parasFromHtml(html) {
       sceneBreak,
       poetry,
       flush,
+      fmt, // '', 'h1', 'h2', 'quote', 'ul' or 'ol'
       text: (healStrayNbsp(p), p.innerText).trim(),
       runs,
       align,
       html: `<p${poetry ? ' class="poetry"' : flush ? ' class="flush"' : ''}${align ? ` style="text-align:${align}"` : ''}>${inner}</p>`
     };
   }).filter((p) => p.sceneBreak || p.text);
+  // numbered lines count along each unbroken run, as on the page
+  let n = 0;
+  for (const p of paras) {
+    n = p.fmt === 'ol' ? n + 1 : 0;
+    if (n) p.num = n;
+  }
+  return paras;
 }
 
 // The book's entries as the builders lay them out. Chapters, a prologue and
@@ -16022,7 +16531,7 @@ function buildPrintHtml(d, o) {
   const prose = (paras, opening) => {
     let first = opening;
     let afterBreak = false;
-    return paras.map((p) => {
+    return styledParasHtml(paras, (p) => atFoot(paraInner(p), p), (p) => {
       if (p.sceneBreak) { afterBreak = true; return '<p class="brk">*&#8195;*&#8195;*</p>'; }
       const inner = atFoot(p.html.replace(/^<p[^>]*>|<\/p>$/g, ''), p);
       if (p.poetry) { afterBreak = false; return `<p class="poetry"${p.align ? ` style="text-align:${p.align}"` : ''}>${inner}</p>`; }
@@ -16033,7 +16542,7 @@ function buildPrintHtml(d, o) {
       first = false;
       afterBreak = false;
       return `<p class="${cls.join(' ')}"${p.align ? ` style="text-align:${p.align}"` : ''}>${inner}</p>`;
-    }).join('\n');
+    });
   };
   const lines = (paras) => paras.map((p) => {
     if (p.sceneBreak) return '<p class="brk">*&#8195;*&#8195;*</p>';
@@ -16198,6 +16707,12 @@ ${cap ? `p.first:not(.dialogue)::first-letter { initial-letter: 2; -webkit-initi
 p.brk { text-align: center; margin: 0.7em 0; break-after: avoid; letter-spacing: 0.1em; }
 p.poetry { margin: 0.5em 1.5em; text-align: left; }
 p.poetry + p.poetry { margin-top: 0; }
+.chapter h3, .chapter h4 { margin: 1.2em 0 0.4em; line-height: 1.25; break-after: avoid; }
+.chapter h3 { font-size: 1.2em; }
+.chapter h4 { font-size: 1.05em; }
+.chapter blockquote { margin: 0.5em 1.5em; }
+.chapter blockquote p, .chapter li { text-indent: 0; text-align: left; margin: 0; }
+.chapter ul, .chapter ol { margin: 0.5em 0 0.5em 1.5em; padding: 0; }
 .backpage p.hy { text-indent: 0; margin-bottom: 0.7em; }
 .also p { text-align: center; font-style: italic; margin: 0 0 0.45em; }
 .note .reach-hd { margin-top: 1.4em; text-align: center; letter-spacing: 0.18em; text-transform: uppercase; font-size: 0.85em; }
@@ -16401,7 +16916,8 @@ function buildTxt(data) {
     for (const p of ch.paras) {
       const noted = (p.runs || []).some((r) => r.fn !== undefined);
       const text = noted ? p.runs.map((r) => (r.fn !== undefined ? (notes.push(r.fn), `[${++fnN}]`) : r.text)).join('').trim() : p.text;
-      out += p.sceneBreak ? '\n***\n\n' : (p.poetry ? '    ' : '') + text + '\n\n';
+      const lead = p.fmt === 'ul' ? '  • ' : p.fmt === 'ol' ? `  ${p.num}. ` : (p.poetry || p.fmt === 'quote') ? '    ' : '';
+      out += p.sceneBreak ? '\n***\n\n' : lead + (p.fmt === 'h1' ? text.toUpperCase() : text) + '\n\n';
     }
     if (notes.length) out += '----------\n' + notes.map((n, i) => `[${fnN - notes.length + i + 1}] ${n}`).join('\n') + '\n\n';
     out += '\n';
@@ -16418,6 +16934,8 @@ function buildMd(data) {
   const mdMarks = [{ key: 'b', open: '**', close: '**' }, { key: 'i', open: '*', close: '*' },
     { key: 's', open: '~~', close: '~~' }, { key: 'u', open: '<u>', close: '</u>' }];
   const mdRuns = (runs) => markedRuns(runs, mdMarks, (t) => t.replace(/([\\*_`~])/g, '\\$1'));
+  // the chapter heading is ##, so a heading inside a chapter is ###
+  const mdLead = (p) => ({ h1: '### ', h2: '#### ', quote: '> ', ul: '- ', ol: `${p.num}. ` })[p.fmt] || (p.poetry ? '> ' : '');
   let out = `# ${mdMeta(d.title)}\n\n`;
   if (d.subtitle) out += `*${mdMeta(d.subtitle)}*\n\n`;
   out += `**${t('by {author}', { author: mdMeta(d.author) })}**\n\n`;
@@ -16427,7 +16945,7 @@ function buildMd(data) {
     const notes = [];
     for (const p of ch.paras) {
       const runs = (p.runs || []).map((r) => (r.fn !== undefined ? (notes.push(r.fn), { text: '\uE001' + (++fnN) + '\uE002' }) : r));
-      out += p.sceneBreak ? '\n***\n\n' : (p.poetry ? '> ' : '') + mdRuns(runs).replace(/\uE001(\d+)\uE002/g, '[^$1]') + '\n\n';
+      out += p.sceneBreak ? '\n***\n\n' : mdLead(p) + mdRuns(runs).replace(/\uE001(\d+)\uE002/g, '[^$1]') + '\n\n';
     }
     notes.forEach((n, i) => { out += `[^${fnN - notes.length + i + 1}]: ${mdMeta(n)}\n`; });
     if (notes.length) out += '\n';
@@ -16500,7 +17018,7 @@ function buildHtml(data, opts = {}) {
   const prose = (paras, initial) => {
     let first = initial;
     let afterBreak = false; // a story's line of speech after *** keeps its indent
-    return paras.map((p) => {
+    return styledParasHtml(paras, paraInner, (p) => {
       if (p.sceneBreak) { afterBreak = initial; return '<p class="brk">***</p>'; }
       if (p.poetry) { afterBreak = false; return p.html; }
       let html = p.html;
@@ -16516,7 +17034,7 @@ function buildHtml(data, opts = {}) {
       first = false;
       afterBreak = false;
       return html;
-    }).join('\n');
+    });
   };
   // a page's lines, each set on its own
   const lines = (paras, attrs = true) => paras.map((p) => {
@@ -16626,6 +17144,14 @@ function buildHtml(data, opts = {}) {
   .chapter p:not(.poetry) + p.poetry, .chapter .hd + p.poetry { margin-top: 0.9em; }
   .chapter p.poetry + p:not(.poetry) { margin-top: 0.9em; }
   .chapter p.byline { text-align: center; margin: -24px 0 40px; letter-spacing: 3px; text-transform: uppercase; font-size: 10pt; color: #555; }
+  /* paragraph styles: headings, block quotes, lists */
+  .chapter h3, .chapter h4 { margin: 1.4em 0 0.5em; line-height: 1.3; text-align: left; break-after: avoid; }
+  .chapter h3 { font-size: 1.3em; }
+  .chapter h4 { font-size: 1.1em; }
+  .chapter blockquote { margin: 0.9em 2.5em; padding-left: 1em; border-left: 3px solid #ccc; }
+  .chapter blockquote p, .chapter li { text-indent: 0; text-align: left; }
+  .chapter ul, .chapter ol { margin: 0.9em 0 0.9em 2.5em; padding: 0; }
+  .chapter h3 + p, .chapter h4 + p, .chapter blockquote + p, .chapter ul + p, .chapter ol + p { text-indent: 0; }
   /* the pages that aren't chapters */
   .page { page-break-before: always; text-align: center; }
   .page p { margin: 0 0 0.5em; }
@@ -16724,6 +17250,31 @@ function runHtml(r, esc = escHtml) {
   if (r.i) t = '<i>' + t + '</i>';
   if (r.b) t = '<b>' + t + '</b>';
   return t;
+}
+// a paragraph's contents, without its <p>
+const paraInner = (p) => p.html.replace(/^<p[^>]*>|<\/p>$/g, '');
+// Styled paragraphs as HTML: headings step below the chapter's own heading
+// (h3, h4), and each unbroken run of quote or list lines shares one
+// <blockquote>, <ul> or <ol>. inner(p) gives a paragraph's contents;
+// plain(p) sets every other paragraph, as the format does.
+function styledParasHtml(paras, inner, plain, heads = { h1: 'h3', h2: 'h4' }) {
+  const WRAP = { quote: ['blockquote', 'p'], ul: ['ul', 'li'], ol: ['ol', 'li'] };
+  const out = [];
+  let open = null;
+  for (const p of paras) {
+    const w = !p.sceneBreak && WRAP[p.fmt];
+    if (open && open !== p.fmt) { out.push(`</${WRAP[open][0]}>`); open = null; }
+    if (w && !open) { out.push(`<${w[0]}>`); open = p.fmt; }
+    const align = p.align === 'center' || p.align === 'right' ? ` style="text-align:${p.align}"` : '';
+    if (w) out.push(`<${w[1]}>${inner(p)}</${w[1]}>`);
+    // (heads.mark keeps NEO's own style name on the tag, for pasting back in)
+    else if (!p.sceneBreak && heads[p.fmt]) {
+      const tag = heads[p.fmt];
+      out.push(`<${tag}${heads.mark ? ` data-fmt="${p.fmt}"` : ''}${heads.cls ? ` class="${heads.cls}"` : ''}${align}>${inner(p)}</${tag}>`);
+    } else out.push(plain(p));
+  }
+  if (open) out.push(`</${WRAP[open][0]}>`);
+  return out.join('\n');
 }
 // A no-break space the writer put between two words (Dr. Müller, 5 km, a
 // space that keeps a dash off the start of a line) stays wherever the text
@@ -16994,7 +17545,9 @@ function docxP(runs, opts = {}) {
       + (opts.tracking ? `<w:spacing w:val="${opts.tracking}"/>` : '')
       + (size ? `<w:sz w:val="${size}"/>` : '')
       + (r.u ? '<w:u w:val="single"/>' : '');
-    return `<w:r>${rPr ? '<w:rPr>' + rPr + '</w:rPr>' : ''}<w:t xml:space="preserve">${escXml(r.text)}</w:t></w:r>`;
+    // Word wants a tab as its own element, not a character in the text
+    const text = escXml(r.text).split('\t').join('</w:t><w:tab/><w:t xml:space="preserve">');
+    return `<w:r>${rPr ? '<w:rPr>' + rPr + '</w:rPr>' : ''}<w:t xml:space="preserve">${text}</w:t></w:r>`;
   }).join('');
   return `<w:p><w:pPr>${pPr.join('')}</w:pPr>${rXml}</w:p>`;
 }
@@ -17069,7 +17622,12 @@ function docxEntriesOf(data) {
     // Indent (a flush paragraph), Poetry, Scene Break; only a centered or
     // right-set line adds its alignment on top
     for (const p of ch.paras) {
+      const align = p.align === 'center' || p.align === 'right' ? p.align : '';
       if (p.sceneBreak) body.push(docxP([{ text: '***' }], { style: 'SceneBreak' }));
+      else if (p.fmt === 'h1' || p.fmt === 'h2') body.push(docxP(paraRuns(p.html), { style: p.fmt === 'h1' ? 'InlineHeading' : 'InlineSubheading', align }));
+      else if (p.fmt === 'quote') body.push(docxP(paraRuns(p.html), { style: 'Quote', align }));
+      // a real tab after the bullet lands on the hanging indent
+      else if (p.fmt === 'ul' || p.fmt === 'ol') body.push(docxP([{ text: p.fmt === 'ul' ? '•\t' : p.num + '.\t' }, ...paraRuns(p.html)], { style: 'ListParagraph' }));
       else if (p.poetry) body.push(docxP(paraRuns(p.html), { style: 'Poetry', align: p.align === 'center' || p.align === 'right' ? p.align : '' }));
       else if (p.align === 'center' || p.align === 'right') body.push(docxP(paraRuns(p.html), { style: 'BodyTextNoIndent', align: p.align }));
       else body.push(docxP(paraRuns(p.html), { style: p.flush ? 'BodyTextNoIndent' : 'BodyText' }));
@@ -17095,6 +17653,10 @@ ${para('BodyText', 'Body Text', '<w:ind w:firstLine="480"/>')}
 ${para('BodyTextNoIndent', 'Body Text No Indent', '', 'BodyText')}
 ${para('Poetry', 'Poetry', '<w:ind w:left="720" w:right="720"/>')}
 ${para('SceneBreak', 'Scene Break', '<w:spacing w:before="240"/><w:jc w:val="center"/>', 'BodyText')}
+${para('InlineHeading', 'Inline Heading', '<w:keepNext/><w:spacing w:before="360" w:after="120"/>', 'BodyTextNoIndent', '<w:b/><w:sz w:val="32"/>')}
+${para('InlineSubheading', 'Inline Subheading', '<w:keepNext/><w:spacing w:before="240" w:after="120"/>', 'BodyTextNoIndent', '<w:b/><w:sz w:val="28"/>')}
+${para('Quote', 'Quote', '<w:ind w:left="720" w:right="720"/>', 'BodyTextNoIndent')}
+${para('ListParagraph', 'List Paragraph', '<w:tabs><w:tab w:val="left" w:pos="720"/></w:tabs><w:ind w:left="720" w:hanging="360"/>', 'ListParagraph')}
 ${para('Title', 'Title', '<w:spacing w:before="3000"/><w:jc w:val="center"/>', 'Normal', '<w:b/><w:sz w:val="56"/>')}
 ${para('Subtitle', 'Subtitle', '<w:jc w:val="center"/>', 'Normal', '<w:i/><w:sz w:val="32"/>')}
 ${para('Author', 'Author', '<w:spacing w:before="800"/><w:jc w:val="center"/>')}
@@ -17191,7 +17753,7 @@ ${ch.subtitle ? `<p class="sub">${escXml(ch.subtitle)}</p>` : ''}${ch.byline ? `
 </section>`;
   } else {
     let first = true;
-    const paras = ch.paras.map((p) => {
+    const paras = styledParasHtml(ch.paras, xhtmlRuns, (p) => {
       if (p.sceneBreak) { first = true; return '<p class="brk">* * *</p>'; }
       const classes = [];
       if (p.poetry) classes.push('poetry');
@@ -17205,7 +17767,7 @@ ${ch.subtitle ? `<p class="sub">${escXml(ch.subtitle)}</p>` : ''}${ch.byline ? `
       const cls = classes.length ? ` class="${classes.join(' ')}"` : '';
       if (!p.poetry) first = false;
       return `<p${cls}>${xhtmlRuns(p)}</p>`;
-    }).join('\n');
+    }, { h1: 'h2', h2: 'h3', cls: 'fmt' });
     inner = `<section epub:type="${EPUB_TYPES[kind] || ch.role || 'chapter'}">${ch.heading ? `<h1>${escXml(ch.heading)}</h1>` : ''}${ch.byline ? `<p class="byline">${escXml(ch.byline)}</p>` : ''}
 ${paras}
 </section>`;
@@ -17333,6 +17895,13 @@ p.center { text-align: center; text-indent: 0; }
 p.right { text-align: right; text-indent: 0; }
 p.brk { text-align: center; text-indent: 0; margin: 2.5em 0; letter-spacing: 0.5em; }
 p.poetry { text-indent: 0; margin: 0 2em; }
+h2.fmt, h3.fmt { margin: 1.4em 0 0.5em; text-align: left; }
+h2.fmt { font-size: 1.25em; }
+h3.fmt { font-size: 1.1em; }
+blockquote { margin: 0.9em 2em; }
+blockquote p, li { text-indent: 0; text-align: left; }
+ul, ol { margin: 0.9em 0 0.9em 2em; padding: 0; }
+h2.fmt + p, h3.fmt + p, blockquote + p, ul + p, ol + p { text-indent: 0; }
 p.flush { text-indent: 0 !important; }
 p:not(.poetry) + p.poetry, h1 + p.poetry { margin-top: 0.9em; }
 p.poetry + p:not(.poetry) { margin-top: 0.9em; }
@@ -17976,11 +18545,17 @@ window.neo.onMenu(async (msg) => {
     library.exportCustomChapterTitles = msg.checked;
     await writeLibrary(library);
   }
-  if (msg.type === 'emailDraft') doEmailDraft();
-  if (msg.type === 'snapshot' && book && !$('#editor-view').hidden) snapshotNow();
+  if (msg.type === 'copyChapterHeadings') {
+    library.copyChapterHeadings = msg.checked;
+    await writeLibrary(library);
+  }
+  if (msg.type === 'emailDraft' && featureOn('email')) doEmailDraft();
+  if (msg.type === 'snapshot' && book && !$('#editor-view').hidden && featureOn('snapshots')) snapshotNow();
+  if (msg.type === 'customize') customizeNeo();
+  if (msg.type === 'shelf' && book && !$('#editor-view').hidden) backToShelf();
   if (msg.type === 'emailSettings') emailSettings();
   if (msg.type === 'find') openSearch();
-  if (msg.type === 'spellcheck') toggleSpellcheck();
+  if (msg.type === 'spellcheck' && featureOn('spellcheck')) toggleSpellcheck();
   if (msg.type === 'spellLanguage') changeSpellLanguage(msg.value);
   if (msg.type === 'reshelve') reshelveBook();
   if (msg.type === 'typewriter') toggleTypewriter();
@@ -17992,21 +18567,23 @@ window.neo.onMenu(async (msg) => {
   if (msg.type === 'focus') setFocus(msg.value);
   if (msg.type === 'focusCycle') cycleFocus();
   if (msg.type === 'import') importBooks();
+  if (msg.type === 'importLink') importFromLink();
   if (msg.type === 'importChapters') importChapters();
-  if (msg.type === 'stats') openStats();
+  if (msg.type === 'stats' && featureOn('goals')) openStats();
   if (msg.type === 'chapterStep') gotoChapter(msg.value);
   if (msg.type === 'writingStyle') {
     library.writingStyle = msg.value;
     await writeLibrary(library);
     if (window.neo.writingStyleState) window.neo.writingStyleState(library.writingStyle);
   }
-  if (msg.type === 'coverArt') openCoverArt();
+  if (msg.type === 'coverArt' && featureOn('coverArt')) openCoverArt();
   // a script's lines sit where they print: no alignment, poetry or flush
   if (msg.type === 'align' && !(book && isScript())) {
     applyAlign(msg.value);
   }
   if (msg.type === 'poetry' && !(book && isScript())) togglePoetry();
   if (msg.type === 'flush' && !(book && isScript())) toggleFlush();
+  if (msg.type === 'format' && book) applyFormat(msg.value);
   if (msg.type === 'uiLanguage') {
     // save every open page, then reload the window in the new language
     flushAllSaves();
@@ -18306,6 +18883,181 @@ $('#nav-list').addEventListener('keydown', (e) => {
 });
 
 /* ================================================================== */
+/*  DISCORD — Rich Presence                                            */
+/*  On the desktop, with Discord open, the writer's Discord profile    */
+/*  shows NEO Enhanced, the book, the chapter the caret is in (or the  */
+/*  tab), the time since the book was opened, and the words written    */
+/*  since. main.js passes it to discord.js, which talks to Discord's   */
+/*  own app on this computer. Customize NEO → Discord status turns it  */
+/*  off. Only what changed is sent, and Discord is sent it at most     */
+/*  every fifteen seconds.                                             */
+/* ================================================================== */
+
+function discordActivity() {
+  if (!library || !featureOn('discord')) return null;
+  if (!book) return { details: t('On the bookshelf'), since: NEO_OPENED };
+  const words = Math.max(0, discordSession ? discordSession.words : 0);
+  const wordsLine = t('{n} words this session', { n: words });
+  let where = '';
+  if (currentTab === 'outline') where = t('Outlining');
+  else if (currentTab === 'notes') where = t('Notes');
+  else if (currentTab === 'darlings') where = t('Darlings');
+  else if (isScript()) where = t('Screenplay');
+  else if (currentChapterId && book.chapterOrder.includes(currentChapterId)) where = chapterHeadingText(currentChapterId) || '';
+  if (where.length > 80) where = where.slice(0, 79) + '…';
+  return {
+    details: t('Writing {title}', { title: shownTitle(book.title || '') }),
+    state: where ? where + ' · ' + wordsLine : wordsLine,
+    since: discordSession ? discordSession.since : NEO_OPENED
+  };
+}
+function discordUpdate() {
+  if (!window.neo.discordActivity) return; // Pocket has no Discord
+  if (!book) discordSession = null;
+  else if (!discordSession || discordSession.bookId !== book.id) discordSession = { bookId: book.id, since: Date.now(), words: 0 };
+  const act = discordActivity();
+  const sig = JSON.stringify(act);
+  if (sig === discordSent) return;
+  discordSent = sig;
+  window.neo.discordActivity(act);
+}
+// the caret moving into another chapter, by any road
+setInterval(() => { if (!document.hidden) discordUpdate(); }, 10000);
+
+/* ================================================================== */
+/*  CUSTOMIZE NEO — View → Customize NEO…                              */
+/*  Any tab, pane or feature the writer doesn't use can go: its tab,   */
+/*  pane, menu items and keys step out of the way (library.featuresOff,*/
+/*  the ids of what's off). Nothing a book holds is touched, and       */
+/*  turning a feature back on brings it back as it was. Right-click a  */
+/*  tab to hide it. Markdown is Format → Markdown Emphasis's own       */
+/*  setting (library.markdownOff), shown here too.                     */
+/* ================================================================== */
+
+const FEATURES = [
+  { group: tk('Tabs'), items: [
+    { id: 'notes', label: tk('Notes tab'), desc: tk('The book’s notes, and a page for each chapter.') },
+    { id: 'outline', label: tk('Outline tab'), desc: tk('The outline, as index cards or a list.') },
+    { id: 'darlings', label: tk('Darlings tab'), desc: tk('Passages set aside (⌘⇧D) and the list of snapshots. Deleted chapters still go there, and come back when it’s on.') }
+  ] },
+  { group: tk('Around the page'), items: [
+    { id: 'chapters', label: tk('Chapters panel'), desc: tk('The list of chapters at the left edge. ⌥⌘↑ and ⌥⌘↓ still move between chapters.') },
+    { id: 'sidePane', label: tk('Notes panel while writing'), desc: tk('The placeholder notes and outline cards at the right edge of the page.') },
+    { id: 'counters', label: tk('Word and page counters'), desc: tk('The counts in the bottom bar.') },
+    { id: 'goals', label: tk('Goals and sprints'), desc: tk('Today’s words in the bottom bar, and Goals… (⌘,).') },
+    { id: 'zoom', label: tk('Zoom control'), desc: tk('The zoom buttons in the bottom bar. Pinching and ⌘+ / ⌘− still zoom.') }
+  ] },
+  { group: tk('Writing'), items: [
+    { id: 'paragraphStyles', label: tk('Headings, quotes and lists'), desc: tk('Format → Paragraph Style, its keys, and # > - 1. at the start of a line.') },
+    { id: 'markdown', label: tk('Markdown as you type'), desc: tk('*italic*, **bold** and ~~struck~~ as you type or paste.') },
+    { id: 'flush', label: tk('Flush paragraphs'), desc: tk('⇧Enter for a paragraph with no indent. Off, ⇧Enter is an ordinary new paragraph.') },
+    { id: 'poetry', label: tk('Poetry paragraphs'), desc: tk('⌘⇧Enter for an indented italic paragraph.') },
+    { id: 'placeholders', label: tk('Placeholders'), desc: tk('⌘⇧X drops a mark and a note to come back to.') },
+    { id: 'footnotes', label: tk('Footnotes'), desc: tk('⌘⇧N adds a footnote.') },
+    { id: 'spellcheck', label: tk('Spellcheck'), desc: tk('The spellcheck pass (⌘;) and its language.') },
+    { id: 'readAloud', label: tk('Read aloud'), desc: tk('⌘⇧U reads from the cursor in your computer’s voice.') }
+  ] },
+  { group: tk('Books'), items: [
+    { id: 'snapshots', label: tk('Snapshots'), desc: tk('⌘S and File → Take Snapshot. NEO still keeps its own snapshot at the start of each writing day.') },
+    { id: 'email', label: tk('Email drafts'), desc: tk('Email Draft to Myself (⌘E) and its settings.') },
+    { id: 'scripts', label: tk('Screenplays'), desc: tk('New Script on a shelf’s +, and importing Fountain and Final Draft files.') },
+    { id: 'coverArt', label: tk('Painted covers'), desc: tk('Covers painted from your story, and File → Cover Art….') },
+    { id: 'binding', label: tk('Bound shelves'), desc: tk('Binding a shelf into one book. A shelf already bound stays bound.') },
+    { id: 'discord', desktop: true, label: tk('Discord status'), desc: tk('While Discord is open, your profile shows the book, the chapter, how long you’ve been writing and the words written since you opened it.') }
+  ] }
+];
+const FEATURE_IDS = FEATURES.flatMap((g) => g.items.map((f) => f.id));
+
+function featureOn(id) {
+  if (!library) return true;
+  if (id === 'markdown') return !library.markdownOff;
+  return !(library.featuresOff || []).includes(id);
+}
+// turn one on or off (the caller writes the library and applies it)
+function setFeature(id, on) {
+  if (id === 'markdown') {
+    if (on) delete library.markdownOff; else library.markdownOff = true;
+    return;
+  }
+  const off = new Set(library.featuresOff || []);
+  if (on) off.delete(id); else off.add(id);
+  library.featuresOff = [...off].filter((x) => FEATURE_IDS.includes(x));
+  if (!library.featuresOff.length) delete library.featuresOff;
+}
+
+// what's off, on the page (a class for each, styles.css hides them), in the
+// menus (main.js) and in whatever is running
+function applyFeatures() {
+  if (!library) return;
+  for (const id of FEATURE_IDS) document.body.classList.toggle('feature-off-' + id, !featureOn(id));
+  if (window.neo.featuresState) window.neo.featuresState(FEATURE_IDS.filter((id) => !featureOn(id)));
+  syncPaneLayout();
+  if (book && !$('#editor-view').hidden && !featureOn(currentTab)) switchTab('manuscript');
+  if (!featureOn('spellcheck') && spellOn) toggleSpellcheck();
+  if (!featureOn('readAloud') && reading) stopReadAloud();
+  discordUpdate();
+}
+// a pane that's off makes no room beside the page, even when it was kept open
+function syncPaneLayout() {
+  const ev = $('#editor-view');
+  if (!ev) return;
+  ev.classList.toggle('nav-pinned', featureOn('chapters') && $('#nav-pane').dataset.pinned === '1');
+  ev.classList.toggle('side-pinned', (featureOn('sidePane') || currentTab !== 'manuscript') && $('#side-pane').dataset.pinned === '1');
+  document.body.dataset.tab = currentTab || 'manuscript';
+}
+
+async function customizeNeo() {
+  if (document.querySelector('.modal-backdrop.customize')) return;
+  const bd = document.createElement('div');
+  bd.className = 'modal-backdrop customize';
+  bd.innerHTML = `
+    <div class="modal customize-modal" style="width:560px">
+      <h2 style="font-size:17px">${escHtml(t('Customize NEO'))}</h2>
+      <p class="cz-lead">${escHtml(t('Turn off what you don’t use. Its tab, panel, menu items and keys go away; nothing in your books is touched, and turning it back on brings it all back.'))}</p>
+      <div class="cz-groups">${FEATURES.map((g) => `
+        <section class="cz-group"><h3>${escHtml(t(g.group))}</h3>${g.items.filter((f) => !(f.desktop && IS_POCKET)).map((f) => `
+          <label class="cz-row"><input type="checkbox" data-id="${f.id}"${featureOn(f.id) ? ' checked' : ''}>
+            <span class="cz-text"><strong>${escHtml(t(f.label))}</strong><span>${escHtml(t(f.desc))}</span></span></label>`).join('')}
+        </section>`).join('')}
+      </div>
+      <div class="cz-actions">
+        <button class="cz-all btn-quiet">${escHtml(t('Turn everything on'))}</button>
+        <button class="m-ok btn-gold">${escHtml(t('Done'))}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(bd);
+  const changed = async () => { await writeLibrary(library); applyFeatures(); };
+  bd.querySelectorAll('input[data-id]').forEach((box) => {
+    box.onchange = () => { setFeature(box.dataset.id, box.checked); changed(); };
+  });
+  bd.querySelector('.cz-all').onclick = () => {
+    for (const id of FEATURE_IDS) setFeature(id, true);
+    bd.querySelectorAll('input[data-id]').forEach((box) => { box.checked = true; });
+    changed();
+  };
+  const done = () => bd.remove();
+  bd.querySelector('.m-ok').onclick = done;
+  bd.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(); } });
+  bd.querySelector('.m-ok').focus();
+}
+
+// right-click a tab: hide it (or open the rest of the choices)
+$$('.tab').forEach((tab) => {
+  tab.addEventListener('contextmenu', async (e) => {
+    e.preventDefault();
+    const id = tab.dataset.tab;
+    const items = id === 'manuscript' ? [] : [{ label: t('Hide the {tab} Tab', { tab: tab.textContent.trim() }), value: 'hide' }];
+    const pick = await popMenu(e.clientX, e.clientY, [...items, { label: t('Customize NEO…'), value: 'customize' }], { from: tab });
+    if (pick === 'hide') {
+      setFeature(id, false);
+      await writeLibrary(library);
+      applyFeatures();
+      toast(t('Tab hidden. View → Customize NEO… brings it back.'), 4000);
+    } else if (pick === 'customize') customizeNeo();
+  });
+});
+
+/* ================================================================== */
 /*  SIMPLE NEO — File → Show More Features                             */
 /*  NEO opens simple. The switch brings back everything else: the      */
 /*  menu items main.js marks `more`, and the keys and right-click      */
@@ -18368,8 +19120,19 @@ async function setMoreFeatures(on) {
   toast(on ? t('More features on') : t('Simple NEO. File → Show More Features brings back the rest.'));
 }
 
-loadLibrary().then(() => {
+loadLibrary().then(async () => {
+  // This version opens on a white page in a room that follows the computer
+  // (View → Page → Automatic). A library from before it is set so once;
+  // View → Page changes it back any time.
+  if (!library.autoTheme) {
+    library.autoTheme = true;
+    delete library.lightDefault;
+    library.pageTheme = 'auto';
+    await writeLibrary(library);
+    reportViewState();
+  }
   applyLook();
+  applyFeatures();
   typewriterEnabled = !!library.typewriter;
   applyTypewriter();
   // the voices load on the first ask, which on Linux can take a moment: ask
