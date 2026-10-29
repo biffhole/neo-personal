@@ -744,7 +744,7 @@ body.focus-mode .sheet ::selection { color: #1c1c1c; }
 body.focus-mode.night .sheet ::selection { color: #d6d2c6; }
 /* the drop cap sits outside the highlight's reach; same selector as the cap
    itself so no other paragraph grows a ::first-letter */
-body.focus-mode:not(.no-dropcap) .chapter-body.focus-cap:not(.cap-off):not(.no-cap):not(.opens-dialogue) p[data-first]::first-letter { color: var(--ink); }
+body.focus-mode:not(.no-dropcap) .chapter-body.focus-cap:not(.no-cap):not(.opens-dialogue) p[data-first]::first-letter { color: var(--ink); }
 .sheet {
   background: var(--paper); color: var(--ink);
   padding: 70px var(--page-pad-x) 90px;
@@ -881,10 +881,36 @@ body.paged #paper:not(.script) #tp-author { font-size: calc(14px * var(--page-zo
 .chapter-body i i i { font-style: italic; }
 .chapter-body p:not(.poetry) + p.poetry { margin-top: 0.9em; }
 .chapter-body p.poetry + p:not(.poetry) { margin-top: 0.9em; }
-/* cap-off while the caret is in the first paragraph: the rule must stop
-   MATCHING entirely — a matching first-letter rule, even styled to nothing,
-   makes the engine split the text internally, which corrupts deletes */
-body:not(.no-dropcap) .chapter-body:not(.cap-off):not(.no-cap):not(.opens-dialogue) p[data-first]::first-letter {
+/* Paragraph styles (Format menu, or Markdown habits: "# ", "## ", "> ",
+   "- ", "1. "). Each is an ordinary paragraph carrying data-fmt; none
+   takes a first-line indent or a drop cap. */
+.chapter-body p[data-fmt] { text-indent: 0; }
+.chapter-body p[data-fmt="h1"] { font-size: 1.45em; font-weight: 700; line-height: 1.3; margin: 1.1em 0 0.45em; }
+.chapter-body p[data-fmt="h2"] { font-size: 1.18em; font-weight: 700; line-height: 1.4; margin: 0.9em 0 0.35em; }
+.chapter-body p[data-fmt="h1"]:first-child, .chapter-body p[data-fmt="h2"]:first-child { margin-top: 0; }
+.chapter-body p[data-fmt="h1"] + p, .chapter-body p[data-fmt="h2"] + p { text-indent: 0; }
+.chapter-body p[data-fmt="quote"] {
+  margin: 0 2.5em; padding-left: 1em;
+  border-left: 3px solid rgba(128, 128, 128, 0.35);
+}
+.chapter-body p[data-fmt="ul"], .chapter-body p[data-fmt="ol"] { margin: 0 0 0 2.5em; position: relative; }
+.chapter-body p[data-fmt="ul"]::before { content: '•'; position: absolute; right: calc(100% + 0.6em); }
+/* numbers count along each unbroken run of numbered lines */
+.chapter-body p[data-fmt="ol"] { counter-increment: neo-ol; }
+.chapter-body p[data-fmt="ol"]:first-child,
+.chapter-body p:not([data-fmt="ol"]) + p[data-fmt="ol"] { counter-reset: neo-ol; }
+.chapter-body p[data-fmt="ol"]::before { content: counter(neo-ol) '.'; position: absolute; right: calc(100% + 0.5em); }
+/* a quote or list breathes above and below, like a poem */
+.chapter-body p:not([data-fmt="quote"]) + p[data-fmt="quote"],
+.chapter-body p:not([data-fmt="ul"]):not([data-fmt="ol"]) + p:is([data-fmt="ul"], [data-fmt="ol"]) { margin-top: 0.9em; }
+.chapter-body p[data-fmt="quote"] + p:not([data-fmt="quote"]),
+.chapter-body p:is([data-fmt="ul"], [data-fmt="ol"]) + p:not([data-fmt="ul"]):not([data-fmt="ol"]) { margin-top: 0.9em; }
+.chapter-body p[data-fmt="quote"] + p:not([data-fmt]), .chapter-body p:is([data-fmt="ul"], [data-fmt="ol"]) + p:not([data-fmt]) { text-indent: 0; }
+/* The drop cap stays while the writer types in the first paragraph. (It
+   used to step aside there: older Chromium split the text around a
+   ::first-letter and duplicated or lost letters on delete. Electron 43
+   doesn't; scripts/caret.e2e.js edits under the cap to keep it so.) */
+body:not(.no-dropcap) .chapter-body:not(.no-cap):not(.opens-dialogue) p[data-first]::first-letter {
   font-size: 3.4em; float: left; line-height: 0.8;
   padding: 4px 8px 0 0; font-family: var(--dropcap-font);
 }
@@ -1475,6 +1501,21 @@ body.full-screen.focus-mode #bottombar:not(:hover):not(.attn) { opacity: 0; }
 .stats-nums div { text-align: center; }
 .stats-nums .big { font-size: 26px; color: var(--accent); font-family: Georgia, serif; }
 .stats-nums .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 3px; }
+/* today's count can be typed over; it looks like the others until hovered */
+.stats-nums input.big {
+  width: 6ch; field-sizing: content; min-width: 2ch; padding: 0 4px; text-align: center;
+  background: none; border: 1px solid transparent; border-radius: 5px; line-height: 1.2;
+}
+.stats-nums input.big:hover { border-color: #3a3a3a; }
+.stats-nums input.big:focus { outline: none; border-color: var(--accent); }
+.st-today .lbl { position: relative; }
+.stats-nums .lbl button {
+  position: absolute; left: 100%; top: 0; white-space: nowrap;
+  visibility: hidden; background: none; border: 0; padding: 0 0 0 6px; cursor: pointer;
+  font: inherit; color: var(--muted); text-transform: none; letter-spacing: 0;
+}
+.stats-nums .lbl button:hover { color: var(--accent); }
+.st-today:hover .lbl button, .st-today:focus-within .lbl button { visibility: visible; }
 .stats-row { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; font-size: 13px; }
 .stats-row input {
   width: 90px; background: var(--bg); border: 1px solid #3a3a3a; border-radius: 5px;
@@ -2365,3 +2406,32 @@ html:lang(ko) :is(#aux-paper h2, .pen-slot, .shelf-label, .shelf-bound-mark, .pt
   .side-cards-title, .side-card-head, .notes-part, .ns-label, #notes-up, #notes-outline b) {
   letter-spacing: 0.04em;
 }
+
+/* ---- Customize NEO (View → Customize NEO…): what's turned off steps out ---- */
+body.feature-off-notes .tab[data-tab="notes"],
+body.feature-off-outline .tab[data-tab="outline"],
+body.feature-off-darlings .tab[data-tab="darlings"],
+body.feature-off-chapters #nav-pane, body.feature-off-chapters #nav-hotzone,
+body.feature-off-sidePane[data-tab="manuscript"] #side-pane,
+body.feature-off-sidePane[data-tab="manuscript"] #side-hotzone,
+body.feature-off-counters #word-counter, body.feature-off-counters #pos-counter,
+body.feature-off-goals #goal-counter,
+body.feature-off-zoom #zoom-control { display: none !important; }
+
+.customize-modal { max-height: calc(100vh - 48px); }
+.customize-modal .cz-lead { font-size: 13px; opacity: 0.8; }
+.customize-modal .cz-group { margin-bottom: 18px; }
+.customize-modal .cz-group h3 {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+  opacity: 0.6; margin: 0 0 8px;
+}
+.customize-modal label.cz-row {
+  display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 7px 8px;
+  border-radius: 6px; cursor: pointer;
+}
+.customize-modal label.cz-row:hover { background: rgba(128, 128, 128, 0.1); }
+.customize-modal .cz-row input { width: auto; margin: 3px 0 0; flex: none; accent-color: var(--accent); }
+.customize-modal .cz-text { display: flex; flex-direction: column; gap: 2px; }
+.customize-modal .cz-text strong { font-weight: 500; font-size: 13.5px; }
+.customize-modal .cz-text span { font-size: 12px; opacity: 0.65; line-height: 1.4; }
+.customize-modal .cz-actions { display: flex; justify-content: space-between; margin-top: 8px; }

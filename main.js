@@ -365,7 +365,7 @@ function ensureLibrary() {
       authorName: '',
       penNames: [],
       firstRunDone: false,
-      pageTheme: 'night',
+      pageTheme: 'auto',
       shelves: [{ id: 'shelf-1', name: t('Works in Progress'), bookIds: [] }]
     };
     fs.writeFileSync(LIBRARY_FILE, JSON.stringify(seed, null, 2));
@@ -653,7 +653,7 @@ function readLibraryFile() {
       if (d.startsWith('book-') && fs.existsSync(path.join(LIBRARY_DIR, d, 'chapters'))) ids.push(d);
     }
   } catch { /* empty */ }
-  const seed = { authorName: '', penNames: [], firstRunDone: ids.length > 0, pageTheme: 'night',
+  const seed = { authorName: '', penNames: [], firstRunDone: ids.length > 0, pageTheme: 'auto',
     shelves: [{ id: 'shelf-1', name: t('Works in Progress'), bookIds: ids }] };
   logError('recovered', `library.json was lost; ${ids.length} books put back on one shelf`);
   try { writeJSON(LIBRARY_FILE, seed); } catch (err) { logError('recover write', err); }
@@ -1708,16 +1708,10 @@ ipcMain.handle('email:draft', async (_e, { to, subject, body, html, defaultName,
 // Import: .docx / .txt / .md → chapters
 // ---------------------------------------------------------------------------
 
-// numeric references too, and &amp; last, so a literal "&lt;" in the text
-// stays "&lt;" instead of turning into "<"
-const decodeEntities = (s) => s
-  .replace(/&#x([0-9a-f]+);/gi, (m, h) => { try { return String.fromCodePoint(parseInt(h, 16)); } catch { return m; } })
-  .replace(/&#(\d+);/g, (m, d) => { try { return String.fromCodePoint(parseInt(d, 10)); } catch { return m; } })
-  .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-  .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
-// a document's own * _ and \ are text, not emphasis: they travel escaped,
-// the way Markdown writes them, and the window turns them back into letters
-const escapeMarks = (s) => s.replace(/[\\*_]/g, '\\$&');
+// entities, escaped emphasis marks, and the readers for every other format
+// (web pages, EPUB, OpenDocument, PDF, RTF, links): importers.js
+const importers = require('./importers');
+const { decodeEntities, escapeMarks } = importers;
 
 // Is a formatting tag (<w:b>, <w:i>) present, and is it on? Returns true,
 // false (present but switched off — Word writes <w:i w:val="0"/> to cancel
@@ -1763,8 +1757,28 @@ function docxStyleFormats(stylesXml) {
   return out;
 }
 
+// Which of a Word file's numbered lists are bullets and which are numbers:
+// { numId: { level: 'ul' | 'ol' } }, from word/numbering.xml
+function docxNumbering(xml) {
+  const out = {};
+  if (!xml) return out;
+  const abstract = {};
+  for (const m of xml.matchAll(/<w:abstractNum\b[^>]*w:abstractNumId="(\d+)"[^>]*>([\s\S]*?)<\/w:abstractNum>/g)) {
+    abstract[m[1]] = {};
+    for (const l of m[2].matchAll(/<w:lvl\b[^>]*w:ilvl="(\d+)"[^>]*>([\s\S]*?)<\/w:lvl>/g)) {
+      const fmt = (l[2].match(/<w:numFmt\s+w:val="([^"]*)"/) || [])[1] || 'bullet';
+      abstract[m[1]][l[1]] = fmt === 'bullet' || fmt === 'none' ? 'ul' : 'ol';
+    }
+  }
+  for (const m of xml.matchAll(/<w:num\b[^>]*w:numId="(\d+)"[^>]*>([\s\S]*?)<\/w:num>/g)) {
+    const a = (m[2].match(/<w:abstractNumId\s+w:val="(\d+)"/) || [])[1];
+    out[m[1]] = abstract[a] || {};
+  }
+  return out;
+}
+
 // Convert one Word paragraph's bold/italic XML into markdown text with bold/italic
-function docxParagraphToMarkdown(p, styles = {}) {
+function docxParagraphToMarkdown(p, styles = {}, numbering = {}) {
   const pageBreak = /<w:br [^>]*w:type="page"/.test(p) || /<w:pageBreakBefore/.test(p);
   // Word marks headings with a paragraph style such as <w:pStyle w:val="Heading1"/>.
   // Any heading style (Heading1..9, Heading 1..9, or bare "Heading") starts a new chapter and
@@ -1773,6 +1787,20 @@ function docxParagraphToMarkdown(p, styles = {}) {
   const pStyle = (p.match(/<w:pStyle\s+w:val="([^"]*)"/) || [])[1] || '';
   const sName = (styles[pStyle] && styles[pStyle].name) || '';
   const heading = /^heading\s*\d*$/i.test(pStyle) || /^heading\s*\d*$/i.test(sName);
+  // its level: Heading 1 the largest (a heading by outline level counts too)
+  const outline = (p.match(/<w:outlineLvl\s+w:val="(\d)"/) || [])[1];
+  const level = heading ? (+((pStyle + ' ' + sName).match(/(\d)/) || [])[1] || 1) : outline !== undefined && +outline < 9 ? +outline + 1 : 0;
+  // the paragraph styles NEO keeps: a quote, a list item, a heading inside a
+  // chapter (NEO's own Word export names them Inline Heading and Subheading)
+  let fmt = '';
+  const numId = (p.match(/<w:numId\s+w:val="(\d+)"/) || [])[1];
+  const ilvl = (p.match(/<w:ilvl\s+w:val="(\d+)"/) || [])[1] || '0';
+  if (numId && numId !== '0') fmt = (numbering[numId] && numbering[numId][ilvl]) || 'ul';
+  else if (/^list\s*bullet/i.test(sName)) fmt = 'ul';
+  else if (/^list\s*number/i.test(sName)) fmt = 'ol';
+  else if (/quote/i.test(sName) || /quote/i.test(pStyle)) fmt = 'quote';
+  else if (/^inline\s*heading$/i.test(sName)) fmt = 'h1';
+  else if (/^inline\s*subheading$/i.test(sName)) fmt = 'h2';
   // Google Docs exports each of a document's tabs under a "Title"-styled
   // line, and the book's own title page uses the same style: the first one
   // names the book, later ones start chapters (see chapterize)
@@ -1820,7 +1848,12 @@ function docxParagraphToMarkdown(p, styles = {}) {
   };
   const text = merged.map((run) => run.text.split('\n').map((piece) => wrap(run, piece)).join('\n'))
     .join('').replace(/[ \t]*\n[ \t]*/g, '\n').trim();
-  return { text, pageBreak, heading, title };
+  // NEO's own list paragraphs carry their bullet or number as text
+  if (/^list\s*paragraph$/i.test(sName) && !fmt) {
+    const lead = text.match(/^(?:•|(\d{1,3})\.)\s+/);
+    if (lead) return { text: text.slice(lead[0].length), pageBreak, heading, title, level, fmt: lead[1] ? 'ol' : 'ul' };
+  }
+  return { text, pageBreak, heading: heading || level > 0, title, level, fmt };
 }
 
 // Headings that are only NEO's own numbering, in the languages NEO speaks
@@ -1876,7 +1909,10 @@ async function importFile(fp) {
   if (wait && (await wait).size) throw new Error('This file is still downloading from iCloud. Try again in a moment');
   const name = path.basename(fp).replace(/\.[^.]+$/, '');
   const ext = path.extname(fp).toLowerCase();
+  // a Google Docs shortcut (Drive for desktop) is a link to the document
+  if (ext === '.gdoc') return importLink(importers.gdocLink(fp), name);
   let paras = [];
+  let found = {}; // a title and author the document itself names
   // a script (Fountain, or Final Draft's XML) is read as it stands; the
   // window sorts it into its elements (spFromFountain, spFromFdx in app.js)
   if (ext === '.fountain' || ext === '.fdx') {
@@ -1891,12 +1927,17 @@ async function importFile(fp) {
     const xml = await docFile.async('string');
     const stylesFile = zip.file('word/styles.xml');
     const styles = docxStyleFormats(stylesFile ? await stylesFile.async('string') : '');
+    const numFile = zip.file('word/numbering.xml');
+    const numbering = docxNumbering(numFile ? await numFile.async('string') : '');
     paras = [...xml.matchAll(/<w:p[ >][\s\S]*?<\/w:p>/g)]
-      .map((m) => docxParagraphToMarkdown(m[0], styles))
+      .map((m) => docxParagraphToMarkdown(m[0], styles, numbering))
       // a line break inside a Word paragraph (a poem, an address) becomes
       // a paragraph of its own: NEO's lines are paragraphs
       .flatMap((p) => !p.text.includes('\n') ? [p]
         : p.text.split('\n').map((text, i) => ({ ...p, text: text.trim(), pageBreak: p.pageBreak && i === 0, heading: p.heading && i === 0, title: p.title && i === 0 })));
+  } else if (importers.READERS[ext]) {
+    found = await importers.READERS[ext](fp);
+    paras = found.paras;
   } else {
     const raw = readTextFile(fp);
     // Paragraphs are split on blank lines, unless the file barely has any
@@ -1909,9 +1950,61 @@ async function importFile(fp) {
     // blank line between paragraphs: it keeps the blank-line rule)
     const perLine = ext === '.txt' && filled > 3 && blanks <= Math.max(1, filled / 20);
     paras = (perLine ? lines : raw.split(/(?:\r\n|\r|\n)\s*(?:\r\n|\r|\n)/))
-      .map((b) => ({ text: (perLine ? b : b.replace(/\s*(?:\r\n|\r|\n)\s*/g, ' ')).trim(), pageBreak: false }))
+      .flatMap((b) => (/^\.(md|markdown)$/.test(ext) ? markdownBlock(b) : [{ text: (perLine ? b : b.replace(/\s*(?:\r\n|\r|\n)\s*/g, ' ')).trim(), pageBreak: false }]))
       .filter((p) => p.text);
   }
+  return chapterizeParas(paras, name, found);
+}
+
+// One blank-line block of a Markdown file as paragraphs: a heading with its
+// level, a list's items and a quote's lines each on their own, prose lines
+// joined
+function markdownBlock(b) {
+  const lines = b.split(/\r\n|\r|\n/).map((l) => l.trim()).filter(Boolean);
+  const out = [];
+  let prose = [];
+  let quote = null; // the quote being read, line by line
+  const end = () => { if (prose.length) out.push({ text: prose.join(' '), pageBreak: false }); prose = []; quote = null; };
+  for (const l of lines) {
+    let m;
+    if ((m = /^(#{1,6})\s+(.*?)(?:\s+#+)?$/.exec(l))) { end(); out.push({ text: m[2], heading: true, level: m[1].length, pageBreak: false }); continue; }
+    if ((m = /^[-*+•]\s+(?:\[[ xX]\]\s+)?(.*)$/.exec(l)) && !/^([-*_])( *\1){2,}$/.test(l)) { end(); out.push({ text: m[1], fmt: 'ul', pageBreak: false }); continue; }
+    if ((m = /^\d{1,3}[.)]\s+(.*)$/.exec(l))) { end(); out.push({ text: m[1], fmt: 'ol', pageBreak: false }); continue; }
+    if ((m = /^(?:>\s?)+(.*)$/.exec(l))) {
+      if (quote) { quote.text += ' ' + m[1]; continue; }
+      end();
+      quote = { text: m[1], fmt: 'quote', pageBreak: false };
+      out.push(quote);
+      continue;
+    }
+    if (quote) quote = null;
+    prose.push(l);
+  }
+  end();
+  return out;
+}
+
+// A link (a Google Doc, a file on Google Drive, any web page) read the way
+// its file would be
+async function importLink(url, fallbackName) {
+  const got = await importers.fetchLink(url);
+  if (got.html) {
+    const doc = importers.htmlDocument(got.html, { page: true });
+    return chapterizeParas(doc.paras, doc.title || got.name || fallbackName, doc);
+  }
+  try {
+    const r = await importFile(got.file);
+    if (!r.title || /^neo-import-/.test(r.title)) r.title = fallbackName || got.name;
+    r.name = fallbackName || got.name;
+    return r;
+  } finally {
+    fs.rm(got.file, { force: true }, () => {});
+  }
+}
+
+// The paragraphs of a document, sorted into chapters with a title and an
+// author: what the window makes a book of
+function chapterizeParas(paras, name, found = {}) {
 
   // Chapterize: page breaks and heading lines start new chapters. Headings
   // include "Chapter N" styles plus bare chapter numbers — "7", "VII",
@@ -1941,9 +2034,25 @@ async function importFile(fp) {
   const titleOf = (t) => {
     if (isMdHeading(t)) t = mdTitleOf(t);
     t = bare(t).replace(/(^|[^\p{L}\p{N}_])_([^_]+)_(?![\p{L}\p{N}_])/gu, '$1$2');
+    // "Chapter 3 — The Long Way Home" (NEO's own exports, and many others):
+    // the numbering goes, the title stays
+    const named = t.match(/^(.{1,30}?)\s*(?:[:—–]|\s-)\s+(\S.*)$/u);
+    if (named && isNumberedHeading(named[1].trim())) return named[2].trim();
     return isNumberedHeading(t) ? '' : t;
   };
   const isBreak = (t) => /^\s*([*#•~⁂—–-]\s*){1,7}$/.test(t || '');
+
+  // Headings by level (Word's Heading 1, 2…, HTML's h1, h2…, a PDF's type
+  // sizes): the chapters are the largest headings that come more than once.
+  // A lone larger heading before the story is the book's title, and a level
+  // of part headings ("Part One", "Book Two") stands above the chapters.
+  // Smaller headings stay inside their chapter, as its Heading and
+  // Subheading.
+  const PART_WORDS = /^(part|book|volume|partie|parte|teil|deel|część|czesc|часть|μέρος|μερος|rész|resz|livre|libro|buch|boek|tome|tomo)(?![\p{L}])/iu;
+  const byLevel = {};
+  for (const p of paras) if (p.heading && p.level) (byLevel[p.level] = byLevel[p.level] || []).push(bare(p.text));
+  const levels = Object.keys(byLevel).map(Number).sort((a, b) => a - b);
+  const chapterLevel = levels.find((l) => byLevel[l].length >= 2 && !byLevel[l].every((t) => PART_WORDS.test(t))) || levels[0] || 1;
 
   let styledTitle = null; // a Title-styled first line: the book's name
   const chapterize = (usePageBreaks) => {
@@ -1965,6 +2074,18 @@ async function importFile(fp) {
       if (!p.text && !brk && !p.heading && !p.title) continue;
       // a Title line before any prose is the book's title, not a chapter's
       if (p.title && !seenProse && styledTitle === null && p.text) { styledTitle = titleOf(p.text); continue; }
+      // ...and so is a lone larger heading there
+      if (p.heading && p.level && p.level < chapterLevel && !seenProse && styledTitle === null && !PART_WORDS.test(bare(p.text))) {
+        styledTitle = titleOf(p.text); continue;
+      }
+      // a smaller heading is a heading inside the chapter (unless it follows
+      // the chapter's heading straight away: then it's the chapter's title)
+      if (p.heading && p.level > chapterLevel && !(lastWasHeading && !cur.length)) {
+        cur.push({ text: p.text, fmt: p.level === chapterLevel + 1 ? 'h1' : 'h2' });
+        seenProse = true;
+        lastWasHeading = false;
+        continue;
+      }
       const isH = p.heading || p.title || isHeading(p.text);
       if (brk || isH) {
         // a heading that follows another with no prose between (a Google
@@ -1984,7 +2105,7 @@ async function importFile(fp) {
       } // the heading line is replaced by NEO's numbering
       lastWasHeading = false;
       if (isBreak(p.text)) { cur.push({ scene: true }); continue; }
-      if (p.text) { cur.push({ text: p.text }); seenProse = true; }
+      if (p.text) { cur.push(p.fmt ? { text: p.text, fmt: p.fmt } : { text: p.text }); seenProse = true; }
     }
     close();
     return chapters;
@@ -2004,8 +2125,10 @@ async function importFile(fp) {
 
   // Front matter: a short title line and a "by Author" line belong on the
   // title page, not in the body. Detect, harvest, and remove them.
-  let title = styledTitle || null;
-  let author = null;
+  // (a PDF's own Title is often only the file it was made from)
+  const ownTitle = found.title && !/\.(docx?|pdf|rtf|txt|pages|odt)$|^(untitled|microsoft word)\b/i.test(found.title) ? found.title : null;
+  let title = styledTitle || ownTitle || null;
+  let author = found.author || null;
   // letters of any script; NFC because a Mac may hand over the file name
   // decomposed while the text inside is composed
   const norm = (s) => s.normalize('NFC').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
@@ -2034,7 +2157,11 @@ async function importFile(fp) {
       (t0 === t0.toUpperCase() && /\p{Lu}.*\p{Lu}/u.test(t0) && t0.length < 60)
     );
     if (titleish) {
-      title = bare(t0);
+      // (with the title already known, a line in capitals under it is the
+      // author's name, set the way title pages set it)
+      const caps = (x) => (x === x.toUpperCase() ? x.toLowerCase().replace(/(^|[\s'’-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase()) : x);
+      if (!title) title = bare(t0);
+      else if (!author && norm(t0) !== norm(title) && t0.split(/\s+/).length <= 4) author = caps(bare(t0));
       first.paras.shift();
     }
     const bl = first.paras.length ? bylineOf((first.paras[0].text || '').trim()) : null;
@@ -2042,6 +2169,22 @@ async function importFile(fp) {
       author = bare(bl);
       first.paras.shift();
     }
+    // what's left before the first chapter's heading is a title page's
+    // lines (the author's name, a subtitle) when it's only a few short ones
+    const short = first.paras.every((p) => p.scene || (p.text && p.text.length < 60 && !/[.!?…]["”’»]?$/.test(bare(p.text))));
+    if (first.paras.length && first.paras.length <= 3 && short && !first.title && chapters.length > 1) {
+      const lines = first.paras.filter((p) => p.text).map((p) => bare(p.text));
+      if (!author) {
+        const by = lines.map((l) => bylineOf(l) || (/^(\p{Lu}[\p{L}.'’-]*\s){1,3}\p{Lu}[\p{L}'’-]+$/u.test(l) ? l : null)).find(Boolean);
+        if (by) author = bare(by);
+      }
+      first.paras = [];
+    }
+    // a copyright page before the story (a PDF or an ebook carries one) is
+    // the publisher's, not the book's
+    const frontWords = first.paras.reduce((n, p) => n + (p.text ? p.text.split(/\s+/).length : 0), 0);
+    if (first.paras.length && !first.title && chapters.length > 1 && frontWords < 250 &&
+        first.paras.some((p) => /copyright|©|all rights reserved/i.test(p.text || ''))) first.paras = [];
     if (!first.paras.length) chapters.shift();
     if (!chapters.length) chapters.push({ title: '', paras: [{ text: '' }] });
   }
@@ -2054,11 +2197,24 @@ async function importFile(fp) {
   return { name, title, author, chapters };
 }
 
+// every file import reads: the documents, and the scripts
+const IMPORT_RE = new RegExp(`\\.(${[...importers.IMPORT_EXTENSIONS, 'fountain', 'fdx'].join('|')})$`, 'i');
+
+// File → Import from a Link…: a Google Doc, a file on Google Drive, a web page
+ipcMain.handle('import:url', async (_e, url) => {
+  try {
+    return [await importLink(String(url || ''))];
+  } catch (err) {
+    logError('import link', err);
+    return [{ name: String(url || ''), error: String(err.message || err) }];
+  }
+});
+
 // Same parsing as the picker, but for files dropped from Finder/Explorer
 ipcMain.handle('import:files', async (_e, paths) => {
   const out = [];
   for (const fp of paths || []) {
-    if (!/\.(docx|txt|md|fountain|fdx)$/i.test(fp)) continue;
+    if (!IMPORT_RE.test(fp)) continue;
     try {
       out.push(await importFile(fp));
     } catch (err) {
@@ -2077,7 +2233,7 @@ ipcMain.handle('import:pick', async (_e, opts) => {
   const { canceled, filePaths } = await dialog.showOpenDialog(win, {
     title: chapters ? t('Bring chapters into this book') : t('Bring your manuscripts home'),
     properties: ['openFile', 'multiSelections'],
-    filters: [{ name: t('Manuscripts'), extensions: chapters || !moreState ? ['docx', 'txt', 'md'] : ['docx', 'txt', 'md', 'fountain', 'fdx'] }] // scripts: Show More Features
+    filters: [{ name: t('Manuscripts'), extensions: chapters || !moreState ? importers.IMPORT_EXTENSIONS : [...importers.IMPORT_EXTENSIONS, 'fountain', 'fdx'] }] // scripts: Show More Features
   });
   if (canceled || !filePaths.length) return [];
   const out = [];
@@ -2169,14 +2325,19 @@ let backupRunning = false;
 // ---------------------------------------------------------------------------
 // Window
 // The window's own color, seen for a moment before the page draws and at the
-// edges while it resizes: the room's color, dark or (View → Page → Light) light
-function roomColor(theme) { return theme === 'light' ? '#efede8' : '#191919'; }
+// edges while it resizes: the room's color, dark or (View → Page → Light) light.
+// Automatic (this version's default) is the computer's own: dark in dark mode.
+function roomColor(theme) {
+  const light = theme === 'light' || (theme === 'auto' && !require('electron').nativeTheme.shouldUseDarkColors);
+  return light ? '#efede8' : '#191919';
+}
 // (this computer's own page, kept in settings.json as the window reports
 // it; the library's, the last device's, until it has one)
 function libraryPageTheme() {
   const own = readSettings().pageTheme;
   if (own) return own;
-  try { return isCloudOnly(LIBRARY_FILE) ? 'night' : JSON.parse(fs.readFileSync(LIBRARY_FILE, 'utf8')).pageTheme || 'night'; } catch { return 'night'; }
+  // (Automatic unless chosen otherwise: this version's default)
+  try { return isCloudOnly(LIBRARY_FILE) ? 'auto' : JSON.parse(fs.readFileSync(LIBRARY_FILE, 'utf8')).pageTheme || 'auto'; } catch { return 'auto'; }
 }
 
 // ---------------------------------------------------------------------------
@@ -2515,13 +2676,13 @@ ipcMain.on('uizoom:state', (_e, z) => {
 });
 // View and Format menu ticks: the focus level, the page, Brighter Interface, and the writing
 // format the page is using (body font, drop cap style, paragraph alignment).
-let viewState = { focus: 'off', pageTheme: 'night', uiBright: false, bodyFont: '', dropCap: 'literary', align: null };
+let viewState = { focus: 'off', pageTheme: 'auto', uiBright: false, bodyFont: '', dropCap: 'literary', align: null };
 let keptTheme = null;
 ipcMain.on('view:state', (e, st) => {
   st = st || {};
   const next = {
     focus: st.focus || 'off',
-    pageTheme: st.pageTheme || 'night',
+    pageTheme: st.pageTheme || 'auto',
     uiBright: !!st.uiBright,
     bodyFont: typeof st.bodyFont === 'string' ? st.bodyFont : '',
     dropCap: typeof st.dropCap === 'string' ? st.dropCap : 'literary',
@@ -2558,11 +2719,41 @@ ipcMain.on('more:state', (_e, on) => {
   moreState = on;
   try { buildMenu(); } catch (err) { logError('menu', err); }
 });
-// a template without the `more` items, and without the separators they leave
-// at an end or side by side
+// View → Customize NEO…: the features the writer turned off (ids from the
+// window; until it says, the library's own list). Their items carry
+// `feature` in buildMenu() and are left out like the `more` ones.
+let featuresOff = null;
+ipcMain.on('features:state', (_e, list) => {
+  const next = new Set(Array.isArray(list) ? list.map(String) : []);
+  if (featuresOff && [...next].join() === [...featuresOff].join()) return;
+  featuresOff = next;
+  try { buildMenu(); } catch (err) { logError('menu', err); }
+});
+// Discord Rich Presence (discord.js): the window reports the book, chapter
+// and session, or null on the shelf with the feature off. The application id
+// is the "NEO Enhanced" app in Discord's Developer Portal, whose name is the
+// one Discord shows; settings.json's `discordClientId` can point at another.
+const DISCORD_CLIENT_ID = '1562923499016953977';
+const DISCORD_IMAGE = 'https://raw.githubusercontent.com/justsomerandomshit/NEO_Enhanced/main/assets/logo/icon.png';
+let presence = null;
+ipcMain.on('discord:activity', (_e, st) => {
+  if (!presence) {
+    const clientId = readSettings().discordClientId || DISCORD_CLIENT_ID;
+    if (!clientId || !/^\d{5,25}$/.test(String(clientId))) return;
+    presence = require('./discord').createPresence({ clientId, log: logError });
+  }
+  presence.set(st ? require('./discord').buildActivity(st, { largeImage: DISCORD_IMAGE }) : null);
+});
+app.on('will-quit', () => { if (presence) presence.stop(); });
+function featureOffNow(id) {
+  if (!featuresOff) featuresOff = new Set(readJSON(LIBRARY_FILE, {}).featuresOff || []);
+  return featuresOff.has(id);
+}
+// a template without the `more` items (and those of features turned off),
+// and without the separators they leave at an end or side by side
 function simpleTemplate(items, more) {
-  const kept = items.filter((it) => more || !it.more).map((it) => {
-    const { more: _, ...item } = it;
+  const kept = items.filter((it) => (more || !it.more) && !(it.feature && featureOffNow(it.feature))).map((it) => {
+    const { more: _, feature: __, ...item } = it;
     return Array.isArray(item.submenu) ? { ...item, submenu: simpleTemplate(item.submenu, more) } : item;
   });
   const shown = (it) => it.visible !== false;
@@ -2623,6 +2814,10 @@ function buildMenu() {
     {
       label: t('File'),
       submenu: [
+        // the shelf, from anywhere in a book (Esc does it too, when nothing
+        // else is open)
+        { label: t('Back to Bookshelf'), accelerator: 'CmdOrCtrl+Shift+B', enabled: bookOpenState, click: () => sendToWindow({ type: 'shelf' }) },
+        { type: 'separator' },
         {
           label: t('Export'),
           submenu: scriptState.on ? [
@@ -2652,18 +2847,20 @@ function buildMenu() {
         },
         { type: 'separator' },
         {
+          feature: 'email',
           label: t('Email Draft to Myself'),
           accelerator: 'CmdOrCtrl+E',
           click: () => sendToWindow({ type: 'emailDraft' })
         },
-        { label: t('Email Settings…'), click: () => sendToWindow({ type: 'emailSettings' }) },
+        { feature: 'email', label: t('Email Settings…'), click: () => sendToWindow({ type: 'emailSettings' }) },
         { type: 'separator' },
         // shown, not registered: the window answers ⌘S itself, so it works the
         // same in Pocket with a keyboard and never fires twice
-        { label: t('Take Snapshot'), accelerator: 'CmdOrCtrl+S', registerAccelerator: false, click: () => sendToWindow({ type: 'snapshot' }) },
+        { feature: 'snapshots', label: t('Take Snapshot'), accelerator: 'CmdOrCtrl+S', registerAccelerator: false, click: () => sendToWindow({ type: 'snapshot' }) },
         { type: 'separator' },
-        { more: true, label: t('Cover Art…'), click: () => sendToWindow({ type: 'coverArt' }) },
+        { more: true, feature: 'coverArt', label: t('Cover Art…'), click: () => sendToWindow({ type: 'coverArt' }) },
         {
+          feature: 'goals',
           label: t('Goals…'),
           accelerator: 'CmdOrCtrl+,',
           click: () => sendToWindow({ type: 'stats' })
@@ -2682,6 +2879,7 @@ function buildMenu() {
           accelerator: 'CmdOrCtrl+Shift+I',
           click: () => sendToWindow({ type: 'import' })
         },
+        { label: t('Import from a Link…'), click: () => sendToWindow({ type: 'importLink' }) },
         {
           more: true,
           label: t('Import Chapters…'),
@@ -2711,6 +2909,12 @@ function buildMenu() {
         { type: 'separator' },
         { role: 'cut', label: t('Cut') }, { role: 'copy', label: t('Copy') }, { role: 'paste', label: t('Paste') },
         { role: 'pasteAndMatchStyle', label: t('Paste and Match Style') }, { role: 'selectAll', label: t('Select All') },
+        {
+          label: t('Copy Chapter Headings'),
+          type: 'checkbox',
+          checked: readJSON(LIBRARY_FILE, {}).copyChapterHeadings !== false,
+          click: (item) => sendToWindow({ type: 'copyChapterHeadings', checked: item.checked })
+        },
         { type: 'separator' },
         {
           label: isMac ? t('Find & Replace') : t('Find & Replace').replace(/&/g, '&&'),
@@ -2718,6 +2922,7 @@ function buildMenu() {
           click: () => sendToWindow({ type: 'find' })
         },
         {
+          feature: 'spellcheck',
           label: t('Spellcheck Pass'),
           accelerator: 'CmdOrCtrl+;',
           // shown, not registered: the window answers the ; character itself
@@ -2729,6 +2934,7 @@ function buildMenu() {
         },
         {
           more: true,
+          feature: 'spellcheck',
           label: t('Spellcheck Language'),
           submenu: Object.entries(SPELL_LANGUAGES).map(([code, lang]) => ({
             label: lang.label,
@@ -2742,6 +2948,39 @@ function buildMenu() {
     {
       label: t('Format'),
       submenu: [
+        // The editor answers these keys itself (so they also work in NEO
+        // Pocket); the menu only shows them
+        ...[
+          [t('Bold'), 'CmdOrCtrl+B', 'bold'],
+          [t('Italic'), 'CmdOrCtrl+I', 'italic'],
+          [t('Underline'), 'CmdOrCtrl+U', 'underline'],
+          [t('Strikethrough'), 'CmdOrCtrl+Shift+S', 'strike']
+        ].map(([label, accelerator, value]) => ({
+          visible: !scriptState.on, label, ...pageKey(accelerator, () => sendToWindow({ type: 'format', value }))
+        })),
+        {
+          visible: !scriptState.on,
+          feature: 'paragraphStyles',
+          label: t('Paragraph Style'),
+          submenu: [
+            [t('Heading'), 'CmdOrCtrl+Alt+1', 'h1'],
+            [t('Subheading'), 'CmdOrCtrl+Alt+2', 'h2'],
+            [t('Block Quote'), 'CmdOrCtrl+Shift+9', 'quote'],
+            [t('Bulleted List'), 'CmdOrCtrl+Shift+8', 'ul'],
+            [t('Numbered List'), 'CmdOrCtrl+Shift+7', 'ol'],
+            null,
+            [t('Normal Paragraph'), 'CmdOrCtrl+Alt+0', 'plain']
+          ].map((row) => (row
+            ? { label: row[0], ...pageKey(row[1], () => sendToWindow({ type: 'format', value: row[2] })) }
+            : { type: 'separator' }))
+        },
+        {
+          visible: !scriptState.on,
+          feature: 'paragraphStyles',
+          label: t('Clear Formatting'),
+          ...pageKey('CmdOrCtrl+\\', () => sendToWindow({ type: 'format', value: 'clear' }))
+        },
+        { type: 'separator', visible: !scriptState.on },
         {
           visible: !scriptState.on, // a script is set in Courier Prime
           label: t('Body Font'),
@@ -2861,6 +3100,7 @@ function buildMenu() {
         ] : []),
         {
           visible: !scriptState.on,
+          feature: 'flush',
           label: t('Flush Paragraph'),
           ...pageKey('Shift+Enter', () => sendToWindow({ type: 'flush' })),
           type: 'checkbox',
@@ -2869,6 +3109,7 @@ function buildMenu() {
         {
           more: true,
           visible: !scriptState.on,
+          feature: 'poetry',
           label: t('Poetry Paragraph'),
           ...pageKey('CmdOrCtrl+Shift+Enter', () => sendToWindow({ type: 'poetry' })),
           type: 'checkbox',
@@ -2878,7 +3119,6 @@ function buildMenu() {
         // *italic* and **bold** as you type or paste; off for writers who
         // keep literal asterisks
         {
-          more: true,
           label: t('Markdown Emphasis'),
           type: 'checkbox',
           checked: !readJSON(LIBRARY_FILE, {}).markdownOff,
@@ -2889,6 +3129,8 @@ function buildMenu() {
     {
       label: t('View'),
       submenu: [
+        { label: t('Customize NEO…'), click: () => sendToWindow({ type: 'customize' }) },
+        { type: 'separator' },
         {
           label: t('Keyboard Shortcuts…'),
           accelerator: 'CmdOrCtrl+/',
@@ -2926,7 +3168,9 @@ function buildMenu() {
         {
           label: t('Page'),
           submenu: [
-            { label: t('Night'), type: 'radio', checked: viewState.pageTheme !== 'paper' && viewState.pageTheme !== 'light', click: () => sendToWindow({ type: 'pageTheme', value: 'night' }) },
+            // a white page, in a room as dark or light as the computer is set
+            { label: t('Automatic'), type: 'radio', checked: viewState.pageTheme === 'auto', click: () => sendToWindow({ type: 'pageTheme', value: 'auto' }) },
+            { label: t('Night'), type: 'radio', checked: viewState.pageTheme === 'night', click: () => sendToWindow({ type: 'pageTheme', value: 'night' }) },
             { label: t('Paper'), type: 'radio', checked: viewState.pageTheme === 'paper', click: () => sendToWindow({ type: 'pageTheme', value: 'paper' }) },
             // white paper in a light room: the whole app, shelf included
             { label: t('Light'), type: 'radio', checked: viewState.pageTheme === 'light', click: () => sendToWindow({ type: 'pageTheme', value: 'light' }) }
@@ -2986,10 +3230,6 @@ function buildMenu() {
         {
           label: t('About NEO'),
           click: () => sendToWindow({ type: 'about' })
-        },
-        {
-          label: t('Check for Update…'),
-          click: () => sendToWindow({ type: 'checkUpdate' })
         }
       ]
     }
@@ -3175,11 +3415,15 @@ ipcMain.handle('app:version', () => app.getVersion());
 // (the page saves itself first). A build that can't self-update — `npm
 // start`, the Windows portable .exe, anything unsigned — falls back to the
 // release page on GitHub, as before.
+// This copy is a personal version: it never looks for updates, so an
+// official release can't replace it.
+const UPDATES_OFF = true;
 let updater = null;          // electron-updater's autoUpdater, wired once
 let updaterReady = false;    // an update is downloaded and waiting
 // where the background download stands, so the window can pick it up mid-way
 const upd = { state: 'idle', version: '', percent: 0, transferred: 0, total: 0, message: '' };
 function getUpdater() {
+  if (UPDATES_OFF) return null;
   if (updater || !app.isPackaged) return updater;
   const { autoUpdater } = require('electron-updater');
   autoUpdater.logger = null;
@@ -3309,7 +3553,7 @@ if (!app.requestSingleInstanceLock()) {
 // unsigned build never notices.
 const UPDATE_EVERY = 60 * 60 * 1000;
 function checkForUpdates() {
-  if (!app.isPackaged) return;
+  if (UPDATES_OFF || !app.isPackaged) return;
   const look = () => { lookForUpdate().catch(() => { /* logged in lookForUpdate */ }); };
   setTimeout(look, 8000);
   const timer = setInterval(look, UPDATE_EVERY);

@@ -240,6 +240,31 @@ test('a chapter made from the menu or the + opens set as the chapter before it',
   }
 });
 
+test('the drop cap shows while the first paragraph is written, and edits under it keep every letter', async () => {
+  // the newest chapter, empty: the caret in its first paragraph
+  const B = `[...document.querySelectorAll('.chapter-body')].pop()`;
+  const caretAt = (n) => js(`(() => { const p = ${B}.children[0]; ${B}.focus(); const t = p.firstChild && p.firstChild.nodeType === 3 ? p.firstChild : p; const r = document.createRange(); r.setStart(t, ${n}); r.collapse(true); getSelection().removeAllRanges(); getSelection().addRange(r); })()`);
+  const text = () => js(`${B}.children[0].textContent`);
+  const capOn = () => js(`getComputedStyle(${B}.children[0], '::first-letter').float === 'left'`);
+  await caretAt(0);
+  for (const c of 'The plate was empty.') await press(c === ' ' ? 'Space' : c, c);
+  assert.equal(await text(), 'The plate was empty.');
+  assert.equal(await capOn(), true, 'the cap is up while the caret is still in the paragraph');
+  await caretAt(1);
+  await press('Backspace');
+  assert.equal(await text(), 'he plate was empty.');
+  await press('W', 'W');
+  assert.equal(await text(), 'Whe plate was empty.');
+  await caretAt(0);
+  await press('Delete');
+  await press('Delete');
+  assert.equal(await text(), 'e plate was empty.');
+  await press('T', 'T');
+  await press('h', 'h');
+  assert.equal(await text(), 'The plate was empty.');
+  assert.equal(await capOn(), true);
+});
+
 /* ---------- runner ---------- */
 
 async function main() {
